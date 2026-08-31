@@ -1,12 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Card from '../ui/Card'
 import OrderItem from '../ui/OrderItem'
-import { orders } from '../../data/dashboard'
+import { getOrders } from '../../data/orders'
 
 const filters = ['Все', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
 
 function ActiveOrders() {
   const [activeFilter, setActiveFilter] = useState('Все')
+  const [orders, setOrders] = useState([])
+
+  useEffect(() => {
+    async function loadOrders() {
+      const result = await getOrders()
+      setOrders(result)
+    }
+
+    loadOrders()
+  }, [])
 
   const filteredOrders =
     activeFilter === 'Все'
