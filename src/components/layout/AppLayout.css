@@ -1,6 +1,6 @@
 .app-layout {
   display: flex;
-  min-height: 100svh;
+  height: 100svh;
   width: 100%;
   background: var(--color-bg);
 }
@@ -10,7 +10,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100svh;
+  height: 100svh;
 }
 
 .app-layout__backdrop {

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import './Page.css'
 import StatCard from '../components/ui/StatCard'
 import Card from '../components/ui/Card'
@@ -41,10 +42,20 @@ const orders = [
 ]
 
 function HomePage() {
+  const [count, setCount] = useState(0)
+  const [filter, setFilter] = useState('all')
+
+  const filteredOrders =
+    filter === 'all'
+      ? orders
+      : orders.filter((order) => order.status === filter)
+
   return (
     <section className="page">
       <h1 className="page__title">Главная</h1>
       <p>Обзор работы сервисного центра</p>
+      <p>Счётчик: {count}</p>
+      <button onClick={() => setCount(count + 1)}>+1</button>
       <div className="home-page__stats">
         {stats.map((stat) => (
           <StatCard key={stat.label} label={stat.label} value={stat.value} />
@@ -65,8 +76,12 @@ function HomePage() {
       <div className="home-page__orders">
         <Card>
           <h2>Активные заказы</h2>
+          <button onClick={() => setFilter('all')}>Все</button>
+          <button onClick={() => setFilter('В работе')}>В работе</button>
+          <button onClick={() => setFilter('Ожидает деталь')}>Ожидает деталь</button>
+          <button onClick={() => setFilter('Готово к выдаче')}>Готово к выдаче</button>
           <ul className="home-page__orders-list">
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <OrderItem
                 key={order.orderNumber}
                 orderNumber={order.orderNumber}
