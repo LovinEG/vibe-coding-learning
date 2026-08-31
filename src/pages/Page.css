@@ -13,10 +13,29 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
+  margin-bottom: 20px;
 }
 
 @media (max-width: 640px) {
   .home-page__stats {
     grid-template-columns: 1fr;
   }
+}
+
+.home-page__tasks {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-page__orders {
+  margin-top: 20px;
+}
+
+.home-page__orders-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
 }
