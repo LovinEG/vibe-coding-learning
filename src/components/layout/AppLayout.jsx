@@ -12,7 +12,7 @@ function AppLayout() {
 
   return (
     <div className="app-layout">
-      <Sidebar isOpen={isSidebarOpen} />
+      <Sidebar isOpen={isSidebarOpen} onNavigate={closeSidebar} />
       {isSidebarOpen ? (
         <button
           type="button"
