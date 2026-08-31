@@ -9,6 +9,14 @@
   color: var(--color-text);
 }
 
-.home-page__card {
-  margin-bottom: 20px;
+.home-page__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .home-page__stats {
+    grid-template-columns: 1fr;
+  }
 }

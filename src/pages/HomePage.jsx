@@ -1,25 +1,22 @@
 import './Page.css'
-import Button from '../components/ui/Button'
-import Card from '../components/ui/Card'
+import StatCard from '../components/ui/StatCard'
+
+const stats = [
+  { label: 'Активные заказы', value: '12' },
+  { label: 'Просроченные заказы', value: '3' },
+  { label: 'Выручка', value: '254 000 ₽' },
+]
 
 function HomePage() {
-  const handleClick = () => {
-    window.alert('Button works')
-  }
-
   return (
     <section className="page">
       <h1 className="page__title">Главная</h1>
-      <p>Это тестовая страница для проверки компонента Button.</p>
-      <div className="home-page__card">
-        <Card>
-          <h2>Компоненты интерфейса</h2>
-          <p>Card — переиспользуемый элемент интерфейса LovinTech CRM.</p>
-        </Card>
+      <p>Обзор работы сервисного центра</p>
+      <div className="home-page__stats">
+        {stats.map((stat) => (
+          <StatCard key={stat.label} label={stat.label} value={stat.value} />
+        ))}
       </div>
-      <Button type="button" disabled={false} onClick={handleClick}>
-        Тестовая кнопка
-      </Button>
     </section>
   )
 }
