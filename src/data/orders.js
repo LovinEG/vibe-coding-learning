@@ -15,5 +15,7 @@ export async function getOrders() {
     device: order.device,
     status: order.status,
     price: `${order.price} ₽`,
+    defect: order.defect,
+    acceptedAt: order.accepted_at,
   }))
 }
