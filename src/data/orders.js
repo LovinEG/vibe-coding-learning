@@ -37,3 +37,26 @@ export async function createOrder(order) {
     throw error
   }
 }
+
+export async function updateOrder(orderNumber, updates) {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({
+      client: updates.client,
+      device: updates.device,
+      status: updates.status,
+      price: updates.price,
+      defect: updates.defect,
+      accepted_at: updates.acceptedAt,
+    })
+    .eq('order_number', orderNumber)
+    .select()
+
+  if (error) {
+    throw error
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error(`Заказ ${orderNumber} не найден или не был обновлён`)
+  }
+}
