@@ -19,3 +19,21 @@ export async function getOrders() {
     acceptedAt: order.accepted_at,
   }))
 }
+
+export async function createOrder(order) {
+  const { error } = await supabase
+    .from('orders')
+    .insert({
+      order_number: order.orderNumber,
+      client: order.client,
+      device: order.device,
+      status: order.status,
+      price: order.price,
+      defect: order.defect,
+      accepted_at: order.acceptedAt,
+    })
+
+  if (error) {
+    throw error
+  }
+}
