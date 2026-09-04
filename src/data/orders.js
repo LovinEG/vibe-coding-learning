@@ -60,3 +60,19 @@ export async function updateOrder(orderNumber, updates) {
     throw new Error(`Заказ ${orderNumber} не найден или не был обновлён`)
   }
 }
+
+export async function deleteOrder(orderNumber) {
+  const { data, error } = await supabase
+    .from('orders')
+    .delete()
+    .eq('order_number', orderNumber)
+    .select()
+
+  if (error) {
+    throw error
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error(`Заказ ${orderNumber} не найден или не был удалён`)
+  }
+}
