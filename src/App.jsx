@@ -3,11 +3,13 @@ import AppLayout from './components/layout/AppLayout.jsx'
 import HomePage from './pages/HomePage.jsx'
 import OrdersPage from './pages/OrdersPage.jsx'
 import ClientsPage from './pages/ClientsPage.jsx'
+import LoginPage from './pages/LoginPage.jsx'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<AppLayout />}>
           <Route index element={<HomePage />} />
           <Route path="orders" element={<OrdersPage />} />
