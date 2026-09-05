@@ -25,7 +25,7 @@ const NAV_SECTIONS = [
     permission: 'inventory.read',
     items: [
       { to: '/inventory', label: 'Запчасти' },
-      { label: 'Партии', soon: true },
+      { to: '/stock-batches', label: 'Партии' },
       { label: 'Расходники', soon: true },
       { to: '/suppliers', label: 'Поставщики' },
       { label: 'Движения', soon: true },

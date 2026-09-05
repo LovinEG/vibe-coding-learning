@@ -46,23 +46,3 @@ export async function addPart(partData) {
 
   return data
 }
-
-// Приход товара на склад (партия поставки).
-export async function addStockBatch(batchData) {
-  const { data, error } = await supabase
-    .from('stock_batches')
-    .insert({
-      part_id: batchData.partId,
-      supplier_id: batchData.supplierId ?? null,
-      quantity: batchData.quantity,
-      purchase_price: batchData.purchasePrice ?? null,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    throw error
-  }
-
-  return data
-}
