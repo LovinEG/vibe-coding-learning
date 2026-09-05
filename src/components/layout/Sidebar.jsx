@@ -26,7 +26,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/inventory', label: 'Запчасти' },
       { to: '/stock-batches', label: 'Партии' },
-      { label: 'Расходники', soon: true },
+      { to: '/consumables', label: 'Расходники' },
       { to: '/suppliers', label: 'Поставщики' },
       { label: 'Движения', soon: true },
     ],
