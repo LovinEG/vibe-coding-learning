@@ -1187,3 +1187,154 @@
   color: var(--color-text-muted);
   font-size: 14px;
 }
+
+/* ---------- DevicesPage ---------- */
+
+.devices-page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.devices-page__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.devices-page__search {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: 40px;
+  margin-top: 16px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.devices-page__search::placeholder {
+  color: var(--color-text-muted);
+}
+
+.devices-page__search:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.devices-page__table {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.devices-page__table-header,
+.devices-page__row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1.2fr 1.3fr 120px 200px;
+  gap: 12px;
+  align-items: center;
+  min-width: 820px;
+}
+
+.devices-page__table-header {
+  margin-bottom: 4px;
+}
+
+.devices-page__table-header span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.devices-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.devices-page__row {
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.devices-page__type {
+  font-weight: 600;
+}
+
+.devices-page__type em {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.devices-page__serial {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.devices-page__owner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.devices-page__owner small {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.devices-page__date {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.devices-page__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.devices-page__action-button {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.devices-page__action-button--danger {
+  border-color: #d64545;
+  background: #d64545;
+  color: #ffffff;
+}
+
+.devices-page__error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #e5484d;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.devices-page__empty {
+  margin: 16px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}

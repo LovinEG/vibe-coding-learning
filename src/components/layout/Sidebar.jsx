@@ -16,7 +16,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/orders', label: 'Заказы' },
       { to: '/clients', label: 'Клиенты' },
-      { label: 'Устройства', soon: true },
+      { to: '/devices', label: 'Устройства' },
       { label: 'Задачи', soon: true },
     ],
   },

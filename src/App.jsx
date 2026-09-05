@@ -10,6 +10,7 @@ import SuppliersPage from './pages/SuppliersPage.jsx'
 import StockBatchesPage from './pages/StockBatchesPage.jsx'
 import ConsumablesPage from './pages/ConsumablesPage.jsx'
 import StockMovementsPage from './pages/StockMovementsPage.jsx'
+import DevicesPage from './pages/DevicesPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
             <Route index element={<HomePage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="clients" element={<ClientsPage />} />
+            <Route path="devices" element={<DevicesPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="suppliers" element={<SuppliersPage />} />
             <Route path="stock-batches" element={<StockBatchesPage />} />
