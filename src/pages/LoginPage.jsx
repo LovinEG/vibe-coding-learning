@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signIn } from '../lib/auth'
+import { useAuth } from '../lib/useAuth'
 import Button from '../components/ui/Button'
 import '../components/ui/Button.css'
 import '../components/ui/Card.css'
@@ -9,6 +10,7 @@ function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const navigate = useNavigate()
+  const { loading, session } = useAuth()
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -25,6 +27,15 @@ function LoginPage() {
     } catch (error) {
       console.error(error)
     }
+  }
+
+  if (loading) {
+    return <div>Загрузка...</div>
+  }
+
+  if (session) {
+    navigate('/', { replace: true })
+    return null
   }
 
   return (
