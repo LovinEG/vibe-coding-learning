@@ -5,3 +5,9 @@ export async function signIn(email, password) {
 
   return result
 }
+
+export async function getSession() {
+  const result = await supabase.auth.getSession()
+
+  return result
+}
