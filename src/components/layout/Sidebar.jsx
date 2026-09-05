@@ -36,7 +36,7 @@ const NAV_SECTIONS = [
     permission: 'finance.view',
     items: [
       { to: '/cash-registers', label: 'Кассы' },
-      { label: 'Оплаты', soon: true },
+      { to: '/payments', label: 'Оплаты' },
       { label: 'Операции', soon: true },
     ],
   },
