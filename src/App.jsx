@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/layout/AppLayout.jsx'
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import { AuthProvider } from './lib/AuthContext.jsx'
@@ -26,6 +26,9 @@ function App() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            {/* Catch-all: неизвестные пути (включая будущие разделы)
+                уводим на Дашборд вместо пустой страницы */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

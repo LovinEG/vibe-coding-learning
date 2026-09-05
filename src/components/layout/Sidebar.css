@@ -63,6 +63,47 @@
   outline-offset: 2px;
 }
 
+/* Группы навигации */
+
+.sidebar__section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar__section + .sidebar__section {
+  margin-top: 14px;
+}
+
+.sidebar__section-title {
+  margin: 0 0 2px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+/* Пункт, находящийся в разработке */
+
+.sidebar__item--soon {
+  justify-content: space-between;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.sidebar__soon {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
