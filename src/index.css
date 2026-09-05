@@ -5,6 +5,18 @@
   --color-text-muted: #6b6b6b;
   --color-accent: #2d9166;
   --color-border: #e8e8e8;
+
+  /* Семантические цвета статусов (см. StatusDropdown) */
+  --color-info: #2f5d9e;
+  --color-info-bg: #e8f0fb;
+  --color-warning: #a2521c;
+  --color-warning-bg: #fdeadd;
+  --color-accent-secondary: #6b4fae;
+  --color-accent-secondary-bg: #f1ecfa;
+  --color-success: #1e7a4d;
+  --color-success-bg: #e3f4ea;
+  --color-bg-secondary: #eef0f2;
+  --color-text-secondary: #5f6871;
   --sidebar-width: 260px;
   --header-height: 64px;
   --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;

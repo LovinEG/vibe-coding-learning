@@ -10,6 +10,7 @@ export async function getOrders() {
   }
 
   return data.map((order) => ({
+    id: order.id,
     orderNumber: order.order_number,
     client: order.clients?.name || order.client,
     device: order.devices
@@ -81,18 +82,11 @@ export async function createOrder(orderData) {
   return createdOrder
 }
 
-export async function updateOrder(orderNumber, updates) {
+export async function updateOrder(id, fieldsToUpdate) {
   const { data, error } = await supabase
     .from('orders')
-    .update({
-      client: updates.client,
-      device: updates.device,
-      status: updates.status,
-      price: updates.price,
-      defect: updates.defect,
-      accepted_at: updates.acceptedAt,
-    })
-    .eq('order_number', orderNumber)
+    .update(fieldsToUpdate)
+    .eq('id', id)
     .select()
 
   if (error) {
@@ -100,8 +94,10 @@ export async function updateOrder(orderNumber, updates) {
   }
 
   if (!data || data.length === 0) {
-    throw new Error(`Заказ ${orderNumber} не найден или не был обновлён`)
+    throw new Error(`Заказ с id ${id} не найден или не был обновлён`)
   }
+
+  return data[0]
 }
 
 export async function deleteOrder(orderNumber) {

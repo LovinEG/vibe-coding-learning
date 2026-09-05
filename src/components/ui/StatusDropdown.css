@@ -1,0 +1,143 @@
+.status-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.status-dropdown__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px 0 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.status-dropdown__trigger:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.status-dropdown__trigger:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.status-dropdown__trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.status-dropdown__arrow {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-right: 3px;
+  border-right: 1.5px solid var(--color-text-muted);
+  border-bottom: 1.5px solid var(--color-text-muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.status-dropdown__trigger--open .status-dropdown__arrow {
+  transform: rotate(-135deg);
+}
+
+.status-dropdown__menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 180px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.08),
+    0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.status-dropdown__option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.status-dropdown__option:hover {
+  background: var(--color-surface);
+}
+
+.status-dropdown__option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.status-dropdown__option--selected {
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+.status-dropdown__badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Цветовые бейджи статусов — строго на глобальных токенах из :root (index.css) */
+
+.status-dropdown__badge--new {
+  background: var(--color-info-bg);
+  border-color: color-mix(in srgb, var(--color-info) 30%, transparent);
+  color: var(--color-info);
+}
+
+.status-dropdown__badge--in-work {
+  background: var(--color-warning-bg);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+  color: var(--color-warning);
+}
+
+.status-dropdown__badge--waiting {
+  background: var(--color-accent-secondary-bg);
+  border-color: color-mix(in srgb, var(--color-accent-secondary) 30%, transparent);
+  color: var(--color-accent-secondary);
+}
+
+.status-dropdown__badge--ready {
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: var(--color-success);
+}
+
+.status-dropdown__badge--done {
+  background: var(--color-bg-secondary);
+  border-color: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
+  color: var(--color-text-secondary);
+}
