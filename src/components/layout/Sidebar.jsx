@@ -35,7 +35,7 @@ const NAV_SECTIONS = [
     title: 'Финансы',
     permission: 'finance.view',
     items: [
-      { label: 'Касса', soon: true },
+      { to: '/cash-registers', label: 'Кассы' },
       { label: 'Оплаты', soon: true },
       { label: 'Операции', soon: true },
     ],
@@ -59,9 +59,10 @@ const NAV_SECTIONS = [
 
 function Sidebar({ isOpen, onNavigate }) {
   // Хуки вызываются безусловно и в фиксированном порядке (правила хуков).
-  // finance.view и team.manage пока отсутствуют в справочнике permissions:
-  // разделы увидят только админы (админ-обход в usePermission),
-  // а после добавления прав в миграцию доступ станет гранулярным.
+  // finance.view добавлен миграцией касс (ШАГ 6); team.manage пока
+  // отсутствует в справочнике permissions — раздел «Команда» видят
+  // только админы (админ-обход в usePermission), а после добавления
+  // права в миграцию доступ станет гранулярным.
   const permissions = {
     'orders.view': usePermission('orders.view'),
     'inventory.read': usePermission('inventory.read'),

@@ -34,6 +34,11 @@ export function formatPrice(price) {
   return `${priceFormatter.format(value)} ₽`
 }
 
+// Денежные суммы (кассы, счета): тот же ru-RU формат с ₽, что и formatPrice.
+export function formatCurrency(value) {
+  return formatPrice(value)
+}
+
 const dateTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
   day: '2-digit',
   month: '2-digit',

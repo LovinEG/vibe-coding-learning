@@ -1538,3 +1538,170 @@
   color: var(--color-text-muted);
   font-size: 14px;
 }
+
+/* ---------- CashRegistersPage ---------- */
+
+.cash-registers-page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cash-registers-page__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.cash-registers-page__hint {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.cash-registers-page__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.cash-registers-page__summary-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.cash-registers-page__summary-value {
+  margin-left: auto;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.cash-registers-page__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.cash-registers-page__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.cash-registers-page__card.is-archive {
+  opacity: 0.65;
+}
+
+.cash-registers-page__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cash-registers-page__type-badge,
+.cash-registers-page__status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.cash-registers-page__type-badge--cash {
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: var(--color-success);
+}
+
+.cash-registers-page__type-badge--bank {
+  background: var(--color-info-bg);
+  border-color: color-mix(in srgb, var(--color-info) 30%, transparent);
+  color: var(--color-info);
+}
+
+.cash-registers-page__type-badge--online {
+  background: var(--color-accent-secondary-bg);
+  border-color: color-mix(in srgb, var(--color-accent-secondary) 30%, transparent);
+  color: var(--color-accent-secondary);
+}
+
+.cash-registers-page__status-badge.is-active {
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: var(--color-success);
+}
+
+.cash-registers-page__status-badge.is-archive {
+  background: var(--color-bg-secondary);
+  border-color: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
+  color: var(--color-text-secondary);
+}
+
+.cash-registers-page__card-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.cash-registers-page__card-balance {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.cash-registers-page__card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.cash-registers-page__card-action {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.cash-registers-page__card-action--danger {
+  border-color: #d64545;
+  background: #d64545;
+  color: #ffffff;
+}
+
+.cash-registers-page__error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #e5484d;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.cash-registers-page__empty {
+  margin: 16px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
