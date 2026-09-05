@@ -17,7 +17,7 @@ export async function getOrders() {
       ? `${order.devices.brand || ''} ${order.devices.model || ''}`.trim()
       : order.device,
     status: order.status,
-    price: `${order.price} ₽`,
+    price: order.price,
     defect: order.defect,
     acceptedAt: order.accepted_at,
     clientPhone: order.clients?.phone || null,

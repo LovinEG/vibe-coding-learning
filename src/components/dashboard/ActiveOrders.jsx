@@ -3,6 +3,7 @@ import Card from '../ui/Card'
 import OrderItem from '../ui/OrderItem'
 import Button from '../ui/Button'
 import { getOrders } from '../../data/orders'
+import { formatPrice } from '../../lib/format'
 import CreateOrderModal from '../modals/CreateOrderModal'
 
 const filters = ['Все', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
@@ -96,7 +97,7 @@ function ActiveOrders() {
                 client={order.client}
                 device={order.device}
                 status={order.status}
-                price={order.price}
+                price={formatPrice(order.price)}
               />
             ))}
           </ul>

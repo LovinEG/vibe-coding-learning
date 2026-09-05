@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import StatCard from '../ui/StatCard'
 import { getOrders } from '../../data/orders'
+import { formatPrice } from '../../lib/format'
 
 function DashboardStats() {
   const [orders, setOrders] = useState([])
@@ -37,16 +38,15 @@ function DashboardStats() {
     (order) => order.status === 'Готово к выдаче',
   ).length
   const revenue = orders.reduce(
-    (sum, order) => sum + (Number.parseFloat(order.price) || 0),
+    (sum, order) => sum + (Number(order.price) || 0),
     0,
   )
-  const formattedRevenue = `${new Intl.NumberFormat('ru-RU').format(revenue)} ₽`
 
   const stats = [
     { label: 'Всего заказов', value: loading ? '—' : String(totalOrders) },
     { label: 'В работе', value: loading ? '—' : String(inWork) },
     { label: 'Завершено', value: loading ? '—' : String(completed) },
-    { label: 'Выручка', value: loading ? '—' : formattedRevenue },
+    { label: 'Выручка', value: loading ? '—' : formatPrice(revenue) },
   ]
 
   return (

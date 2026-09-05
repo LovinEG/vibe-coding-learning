@@ -3,28 +3,11 @@ import Button from '../components/ui/Button'
 import CreateOrderModal from '../components/modals/CreateOrderModal'
 import StatusDropdown from '../components/ui/StatusDropdown'
 import { getOrders, updateOrder } from '../data/orders'
+import { formatDate, formatPrice } from '../lib/format'
 import './Page.css'
 
 const STATUSES = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
 const FILTERS = ['Все', ...STATUSES]
-
-function formatDate(value) {
-  if (!value) {
-    return '—'
-  }
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return '—'
-  }
-
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
-}
 
 function OrdersPage() {
   const [orders, setOrders] = useState([])
@@ -191,7 +174,9 @@ function OrdersPage() {
                 </span>
                 <span>{order.device}</span>
                 <span className="orders-page__defect">{order.defect}</span>
-                <span className="orders-page__price">{order.price}</span>
+                <span className="orders-page__price">
+                  {formatPrice(order.price)}
+                </span>
                 <span>
                   <StatusDropdown
                     value={order.status}
