@@ -133,7 +133,7 @@ function OperationsPage() {
 
   if (!canView) {
     return (
-      <div className="operations-page">
+      <div className="page operations-page">
         <p className="operations-page__error" role="alert">
           У вас нет прав для просмотра раздела «Кассовые операции».
         </p>
@@ -142,7 +142,7 @@ function OperationsPage() {
   }
 
   return (
-    <div className="operations-page">
+    <div className="page operations-page">
       <div className="operations-page__head">
         <div>
           <h1 className="operations-page__title">Кассовые операции</h1>
