@@ -102,6 +102,7 @@ export async function addPartToOrder({
       movement_type: 'expense',
       quantity: qty,
       profile_id: profileId,
+      order_id: orderId,
     })
 
   if (movementError) {
@@ -148,6 +149,7 @@ export async function removePartFromOrder(orderPartId, orderId) {
       movement_type: 'return',
       quantity: row.quantity,
       profile_id: profileId,
+      order_id: orderId,
     })
 
   if (movementError) {

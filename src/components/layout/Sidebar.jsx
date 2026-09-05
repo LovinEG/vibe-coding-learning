@@ -28,7 +28,7 @@ const NAV_SECTIONS = [
       { to: '/stock-batches', label: 'Партии' },
       { to: '/consumables', label: 'Расходники' },
       { to: '/suppliers', label: 'Поставщики' },
-      { label: 'Движения', soon: true },
+      { to: '/stock-movements', label: 'Движения' },
     ],
   },
   {

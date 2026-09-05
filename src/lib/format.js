@@ -33,3 +33,25 @@ export function formatPrice(price) {
 
   return `${priceFormatter.format(value)} ₽`
 }
+
+const dateTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+export function formatDateTime(dateString) {
+  if (!dateString) {
+    return '—'
+  }
+
+  const date = dateString instanceof Date ? dateString : new Date(dateString)
+
+  if (Number.isNaN(date.getTime())) {
+    return '—'
+  }
+
+  return dateTimeFormatter.format(date)
+}

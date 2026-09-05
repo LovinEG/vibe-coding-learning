@@ -9,6 +9,7 @@ import InventoryPage from './pages/InventoryPage.jsx'
 import SuppliersPage from './pages/SuppliersPage.jsx'
 import StockBatchesPage from './pages/StockBatchesPage.jsx'
 import ConsumablesPage from './pages/ConsumablesPage.jsx'
+import StockMovementsPage from './pages/StockMovementsPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 
 function App() {
@@ -32,6 +33,10 @@ function App() {
             <Route path="suppliers" element={<SuppliersPage />} />
             <Route path="stock-batches" element={<StockBatchesPage />} />
             <Route path="consumables" element={<ConsumablesPage />} />
+            <Route
+              path="stock-movements"
+              element={<StockMovementsPage />}
+            />
             {/* Catch-all: неизвестные пути (включая будущие разделы)
                 уводим на Дашборд вместо пустой страницы */}
             <Route path="*" element={<Navigate to="/" replace />} />
