@@ -81,10 +81,15 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, role_id)
+  insert into public.profiles (id, role_id, full_name)
   values (
     new.id,
-    (select id from public.roles where code = 'user' limit 1)
+    (select id from public.roles where code = 'user' limit 1),
+    coalesce(
+      nullif(new.raw_user_meta_data->>'full_name', ''),
+      nullif(new.email, ''),
+      'Сотрудник'
+    )
   )
   on conflict (id) do nothing;
 
@@ -154,8 +159,15 @@ on conflict do nothing;
 -- 8. Бэкфилл: профили для уже существующих пользователей
 --    (созданных до включения триггера) с ролью 'user'.
 -- ---------------------------------------------------------------------
-insert into profiles (id, role_id)
-select u.id, (select id from roles where code = 'user' limit 1)
+insert into profiles (id, role_id, full_name)
+select
+  u.id,
+  (select id from roles where code = 'user' limit 1),
+  coalesce(
+    nullif(u.raw_user_meta_data->>'full_name', ''),
+    nullif(u.email, ''),
+    'Сотрудник'
+  )
 from auth.users u
 on conflict (id) do nothing;
 
