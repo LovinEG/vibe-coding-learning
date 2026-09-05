@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { usePermission } from '../../lib/usePermission'
 import './Sidebar.css'
 
 const navItems = [
@@ -8,6 +9,12 @@ const navItems = [
 ]
 
 function Sidebar({ isOpen, onNavigate }) {
+  const canReadInventory = usePermission('inventory.read')
+
+  const items = canReadInventory
+    ? [...navItems, { to: '/inventory', label: 'Склад' }]
+    : navItems
+
   return (
     <aside
       className={`sidebar${isOpen ? ' is-open' : ''}`}
@@ -18,7 +25,7 @@ function Sidebar({ isOpen, onNavigate }) {
         <span className="sidebar__title">LovinTech CRM</span>
       </div>
       <nav className="sidebar__nav">
-        {navItems.map((item) => (
+        {items.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

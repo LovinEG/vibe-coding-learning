@@ -5,6 +5,7 @@ import { AuthProvider } from './lib/AuthContext.jsx'
 import HomePage from './pages/HomePage.jsx'
 import OrdersPage from './pages/OrdersPage.jsx'
 import ClientsPage from './pages/ClientsPage.jsx'
+import InventoryPage from './pages/InventoryPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
             <Route index element={<HomePage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="clients" element={<ClientsPage />} />
+            <Route path="inventory" element={<InventoryPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

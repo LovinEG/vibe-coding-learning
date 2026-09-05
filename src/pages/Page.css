@@ -350,3 +350,147 @@
   color: var(--color-text-muted);
   font-size: 14px;
 }
+
+/* ---------- InventoryPage ---------- */
+
+.inventory-page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.inventory-page__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.inventory-page__search {
+  width: 100%;
+  max-width: 360px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.inventory-page__search::placeholder {
+  color: var(--color-text-muted);
+}
+
+.inventory-page__search:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.inventory-page__table {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.inventory-page__table-header,
+.inventory-page__row {
+  display: grid;
+  grid-template-columns: 120px 1.8fr 1.1fr 150px 1fr;
+  gap: 12px;
+  align-items: center;
+  min-width: 680px;
+}
+
+.inventory-page__table-header {
+  margin-bottom: 4px;
+}
+
+.inventory-page__table-header span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.inventory-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.inventory-page__row {
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+  font-size: 14px;
+  color: var(--color-text);
+  transition: background-color 0.15s ease;
+}
+
+.inventory-page__sku {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.inventory-page__name {
+  font-weight: 600;
+}
+
+.inventory-page__category {
+  color: var(--color-text-muted);
+}
+
+.inventory-page__stock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inventory-page__low-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inventory-page__row--low {
+  background: color-mix(in srgb, var(--color-warning-bg) 45%, transparent);
+}
+
+.inventory-page__row--low .inventory-page__name {
+  color: var(--color-warning);
+}
+
+.inventory-page__price {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inventory-page__error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #e5484d;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.inventory-page__empty {
+  margin: 16px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
