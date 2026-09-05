@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { signIn } from '../lib/auth'
 import Button from '../components/ui/Button'
 import '../components/ui/Button.css'
@@ -7,6 +8,7 @@ import '../components/ui/Card.css'
 function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const navigate = useNavigate()
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -19,7 +21,7 @@ function LoginPage() {
         return
       }
 
-      console.log(result)
+      navigate('/')
     } catch (error) {
       console.error(error)
     }
