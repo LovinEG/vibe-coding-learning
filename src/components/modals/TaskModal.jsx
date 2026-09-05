@@ -178,6 +178,7 @@ function TaskModal({ open, task, onClose, onSaved }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-modal-title"
+        onClick={(event) => event.stopPropagation()}
       >
         <h2 id="task-modal-title" className="task-modal__title">
           {isEditing ? 'Редактировать задачу' : 'Новая задача'}

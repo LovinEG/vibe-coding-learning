@@ -32,7 +32,13 @@ function TasksPage() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [modal, setModal] = useState({ open: false, task: null })
+  // Модалка открыта + какая задача редактируется (null — создание новой).
+  // Отдельные состояния (а не единый объект {open, task}) гарантируют,
+  // что key компонента TaskModal зависит ТОЛЬКО от факта открытия и id
+  // задачи — во время ввода/выбора в форме key остаётся стабильным,
+  // и компонент не пересоздаётся/не закрывается.
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const [updatingId, setUpdatingId] = useState(null)
 
@@ -72,15 +78,18 @@ function TasksPage() {
   }, [])
 
   function openCreate() {
-    setModal({ open: true, task: null })
+    setEditingTask(null)
+    setModalOpen(true)
   }
 
   function openEdit(task) {
-    setModal({ open: true, task })
+    setEditingTask(task)
+    setModalOpen(true)
   }
 
   function closeModal() {
-    setModal({ open: false, task: null })
+    setModalOpen(false)
+    setEditingTask(null)
   }
 
   async function refreshTasks() {
@@ -288,9 +297,11 @@ function TasksPage() {
       )}
 
       <TaskModal
-        key={modal.open ? modal.task?.id ?? 'new' : 'closed'}
-        open={modal.open}
-        task={modal.task}
+        // key меняется только при открытии/закрытии или смене
+        // редактируемой задачи — во время редактирования стабилен.
+        key={modalOpen ? editingTask?.id || 'new' : 'closed'}
+        open={modalOpen}
+        task={editingTask}
         onClose={closeModal}
         onSaved={refreshTasks}
       />
