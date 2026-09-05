@@ -34,6 +34,13 @@
   margin-top: 20px;
 }
 
+.home-page__orders-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .home-page__orders-list {
   list-style: none;
   margin: 16px 0 0;
