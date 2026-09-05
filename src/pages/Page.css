@@ -58,7 +58,7 @@
 .home-page__orders-filter {
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 8px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
@@ -151,7 +151,7 @@
 .orders-page__filter {
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 8px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
@@ -1045,7 +1045,7 @@
 .movements-page__filter {
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 8px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
@@ -1397,7 +1397,7 @@
 .tasks-page__filter {
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 8px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
@@ -1572,7 +1572,7 @@
   gap: 12px;
   margin-top: 16px;
   padding: 14px 16px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 12px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
@@ -1604,7 +1604,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 14px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
@@ -1753,7 +1753,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 14px 16px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 12px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
@@ -1823,7 +1823,7 @@
 .payments-page__filter {
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 8px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
@@ -1843,7 +1843,7 @@
   height: 32px;
   max-width: 260px;
   padding: 0 10px;
-  border: 1px solid var(--color-border-card);
+  border: none;
   border-radius: 8px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
