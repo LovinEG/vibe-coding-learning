@@ -8,11 +8,19 @@ const filters = ['Все', 'В работе', 'Ожидает деталь', 'Г
 function ActiveOrders() {
   const [activeFilter, setActiveFilter] = useState('Все')
   const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadOrders() {
-      const result = await getOrders()
-      setOrders(result)
+      setLoading(true)
+      try {
+        const result = await getOrders()
+        setOrders(result)
+      } catch (err) {
+        console.error('Не удалось загрузить заказы:', err)
+      } finally {
+        setLoading(false)
+      }
     }
 
     loadOrders()
@@ -50,18 +58,22 @@ function ActiveOrders() {
           <span>Статус</span>
           <span>Стоимость</span>
         </div>
-        <ul className="home-page__orders-list">
-          {filteredOrders.map((order) => (
-            <OrderItem
-              key={order.orderNumber}
-              orderNumber={order.orderNumber}
-              client={order.client}
-              device={order.device}
-              status={order.status}
-              price={order.price}
-            />
-          ))}
-        </ul>
+        {loading ? (
+          <p>Загрузка...</p>
+        ) : (
+          <ul className="home-page__orders-list">
+            {filteredOrders.map((order) => (
+              <OrderItem
+                key={order.orderNumber}
+                orderNumber={order.orderNumber}
+                client={order.client}
+                device={order.device}
+                status={order.status}
+                price={order.price}
+              />
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   )
