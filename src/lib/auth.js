@@ -11,3 +11,9 @@ export async function getSession() {
 
   return result
 }
+
+export async function signOut() {
+  const result = await supabase.auth.signOut()
+
+  return result
+}
