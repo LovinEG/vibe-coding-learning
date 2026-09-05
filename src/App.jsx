@@ -12,8 +12,9 @@ import ConsumablesPage from './pages/ConsumablesPage.jsx'
 import StockMovementsPage from './pages/StockMovementsPage.jsx'
 import DevicesPage from './pages/DevicesPage.jsx'
 import TasksPage from './pages/TasksPage.jsx'
-import CashRegistersPage from './pages/CashRegistersPage.jsx'
 import PaymentsPage from './pages/PaymentsPage.jsx'
+import OperationsPage from './pages/OperationsPage.jsx'
+import CashRegistersPage from './pages/CashRegistersPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 
 function App() {
@@ -34,9 +35,10 @@ function App() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="devices" element={<DevicesPage />} />
+            <Route path="payments" element={<PaymentsPage />} />
+            <Route path="operations" element={<OperationsPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="cash-registers" element={<CashRegistersPage />} />
-            <Route path="payments" element={<PaymentsPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="suppliers" element={<SuppliersPage />} />
             <Route path="stock-batches" element={<StockBatchesPage />} />

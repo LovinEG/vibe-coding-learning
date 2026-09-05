@@ -32,12 +32,13 @@ create index if not exists idx_payments_type            on payments (type);
 create index if not exists idx_payments_created_at      on payments (created_at);
 
 -- ---------------------------------------------------------------------
--- 2. Триггер синхронизации баланса кассы.
---    BEFORE INSERT: при проведении платежа баланс кассы увеличивается
---    на amount для income и уменьшается для expense — атомарно в рамках
---    той же транзакции, что и сам INSERT.
+-- 2. Триггер обновления баланса кассы.
+--    PL/pgSQL функция update_cash_register_balance(): при проведении
+--    платежа увеличивает balance кассы на amount для income и уменьшает
+--    на amount для expense. Вызывается AFTER INSERT — обновление баланса
+--    выполняется атомарно в той же транзакции, что и INSERT.
 -- ---------------------------------------------------------------------
-create or replace function public.sync_cash_register_balance()
+create or replace function public.update_cash_register_balance()
 returns trigger
 language plpgsql
 security definer
@@ -58,12 +59,18 @@ begin
 end;
 $$;
 
+-- Совместимость: если БД уже содержала предыдущую версию триггера
+-- (sync_cash_register_balance, BEFORE INSERT), снимаем её вместе с
+-- функцией, чтобы при повторном применении баланс не обновлялся дважды.
 drop trigger if exists trg_payments_sync_cash_register on payments;
+drop function if exists public.sync_cash_register_balance();
 
-create trigger trg_payments_sync_cash_register
-  before insert on payments
+drop trigger if exists trg_payments_update_cash_register on payments;
+
+create trigger trg_payments_update_cash_register
+  after insert on payments
   for each row
-  execute function public.sync_cash_register_balance();
+  execute function public.update_cash_register_balance();
 
 -- ---------------------------------------------------------------------
 -- 3. RLS: чтение — finance.view / admin, запись — finance.manage / admin.
