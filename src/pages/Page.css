@@ -216,6 +216,22 @@
   font-weight: 600;
 }
 
+.orders-page__number-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.orders-page__number-link:hover {
+  text-decoration: none;
+}
+
 .orders-page__client {
   display: block;
 }

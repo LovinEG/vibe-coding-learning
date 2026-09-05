@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Button from '../components/ui/Button'
 import CreateOrderModal from '../components/modals/CreateOrderModal'
+import OrderDetailsModal from '../components/modals/OrderDetailsModal'
 import StatusDropdown from '../components/ui/StatusDropdown'
 import { getOrders, updateOrder } from '../data/orders'
 import { formatDate, formatPrice } from '../lib/format'
@@ -17,6 +18,7 @@ function OrdersPage() {
   const [activeFilter, setActiveFilter] = useState('Все')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [updatingId, setUpdatingId] = useState(null)
+  const [detailsOrder, setDetailsOrder] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -85,6 +87,19 @@ function OrdersPage() {
     } finally {
       setUpdatingId(null)
     }
+  }
+
+  // Обновление цены из модалки деталей (после списания/возврата запчастей):
+  // синхронно правим строку таблицы и открытую модалку.
+  function handlePriceChange(orderId, newPrice) {
+    setOrders((prev) =>
+      prev.map((item) =>
+        item.id === orderId ? { ...item, price: newPrice } : item,
+      ),
+    )
+    setDetailsOrder((prev) =>
+      prev && prev.id === orderId ? { ...prev, price: newPrice } : prev,
+    )
   }
 
   const normalizedSearch = search.trim().toLowerCase()
@@ -163,7 +178,15 @@ function OrdersPage() {
                 key={order.id ?? order.orderNumber}
                 className="orders-page__row"
               >
-                <span className="orders-page__number">{order.orderNumber}</span>
+                <span className="orders-page__number">
+                  <button
+                    type="button"
+                    className="orders-page__number-link"
+                    onClick={() => setDetailsOrder(order)}
+                  >
+                    {order.orderNumber}
+                  </button>
+                </span>
                 <span>
                   <span className="orders-page__client">{order.client}</span>
                   {order.clientPhone ? (
@@ -203,6 +226,13 @@ function OrdersPage() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onOrderCreated={refreshOrders}
+      />
+
+      <OrderDetailsModal
+        open={Boolean(detailsOrder)}
+        order={detailsOrder}
+        onClose={() => setDetailsOrder(null)}
+        onPriceChange={handlePriceChange}
       />
     </section>
   )
