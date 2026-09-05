@@ -27,7 +27,7 @@ const NAV_SECTIONS = [
       { to: '/inventory', label: 'Запчасти' },
       { label: 'Партии', soon: true },
       { label: 'Расходники', soon: true },
-      { label: 'Поставщики', soon: true },
+      { to: '/suppliers', label: 'Поставщики' },
       { label: 'Движения', soon: true },
     ],
   },

@@ -26,20 +26,6 @@ export async function getParts() {
   }))
 }
 
-// Справочник поставщиков.
-export async function getSuppliers() {
-  const { data, error } = await supabase
-    .from('suppliers')
-    .select('*')
-    .order('name', { ascending: true })
-
-  if (error) {
-    throw error
-  }
-
-  return data ?? []
-}
-
 // Создание запчасти в номенклатуре.
 export async function addPart(partData) {
   const { data, error } = await supabase
