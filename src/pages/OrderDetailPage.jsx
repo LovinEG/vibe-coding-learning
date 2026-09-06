@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  addOrderService,
   getOrderById,
+  getOrderServices,
   updateOrderApproval,
   updateOrderDiagnostic,
 } from '../data/orders'
 import { addOrderPart } from '../data/orderParts'
 import { getParts } from '../data/inventory'
+import { getServices } from '../data/services'
+import { getEmployees } from '../data/tasks'
+import EditOrderModal from '../components/modals/EditOrderModal'
 import { formatDate, formatDateTime, formatPrice } from '../lib/format'
 import { usePermission } from '../lib/usePermission'
 import { useAuth } from '../lib/useAuth'
@@ -61,6 +66,14 @@ const EMPTY_PART_FORM = {
   markup: '',
 }
 
+const EMPTY_SERVICE_FORM = {
+  serviceId: '',
+  title: '',
+  price: '',
+  masterId: '',
+  durationMinutes: '',
+}
+
 function OrderDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -68,9 +81,13 @@ function OrderDetailPage() {
 
   const [order, setOrder] = useState(null)
   const [partsCatalog, setPartsCatalog] = useState([])
+  const [servicesCatalog, setServicesCatalog] = useState([])
+  const [employees, setEmployees] = useState([])
+  const [orderServices, setOrderServices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lightboxUrl, setLightboxUrl] = useState(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
 
   // Редактор диагностики.
   const [diagnosticEditing, setDiagnosticEditing] = useState(false)
@@ -92,19 +109,32 @@ function OrderDetailPage() {
   const [partSaving, setPartSaving] = useState(false)
   const [partError, setPartError] = useState('')
 
+  // Форма добавления работы.
+  const [serviceFormOpen, setServiceFormOpen] = useState(false)
+  const [serviceForm, setServiceForm] = useState(EMPTY_SERVICE_FORM)
+  const [serviceSaving, setServiceSaving] = useState(false)
+  const [serviceError, setServiceError] = useState('')
+
   const canManage = usePermission('orders.edit')
   const canView = usePermission('orders.view')
 
   // Тихое обновление после мутаций (без сброса лоадера).
   const loadOrder = useCallback(async () => {
     try {
-      const [orderData, catalog] = await Promise.all([
-        getOrderById(id),
-        getParts(),
-      ])
+      const [orderData, catalog, servicesData, employeesData, orderServicesData] =
+        await Promise.all([
+          getOrderById(id),
+          getParts(),
+          getServices(),
+          getEmployees(),
+          getOrderServices(id),
+        ])
 
       setOrder(orderData)
       setPartsCatalog(catalog)
+      setServicesCatalog(servicesData)
+      setEmployees(employeesData)
+      setOrderServices(orderServicesData)
       setError(null)
     } catch (err) {
       console.error('Не удалось обновить заказ:', err)
@@ -116,14 +146,21 @@ function OrderDetailPage() {
 
     async function loadInitial() {
       try {
-        const [orderData, catalog] = await Promise.all([
-          getOrderById(id),
-          getParts(),
-        ])
+        const [orderData, catalog, servicesData, employeesData, orderServicesData] =
+          await Promise.all([
+            getOrderById(id),
+            getParts(),
+            getServices(),
+            getEmployees(),
+            getOrderServices(id),
+          ])
 
         if (!cancelled) {
           setOrder(orderData)
           setPartsCatalog(catalog)
+          setServicesCatalog(servicesData)
+          setEmployees(employeesData)
+          setOrderServices(orderServicesData)
           setError(null)
         }
       } catch (err) {
@@ -298,6 +335,100 @@ function OrderDetailPage() {
     }
   }
 
+  // ---------------- Обработчики: работы (услуги) ----------------
+
+  function handleServiceFormChange(event) {
+    const { name, value } = event.target
+    setServiceForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Выбор услуги из справочника: автозаполнение названия, цены и времени.
+  // Вариант "custom" — ручной ввод названия.
+  function handleServiceCatalogSelect(event) {
+    const { value } = event.target
+
+    if (value === 'custom' || value === '') {
+      setServiceForm((prev) => ({
+        ...prev,
+        serviceId: value === 'custom' ? null : '',
+        title: value === 'custom' ? prev.title : '',
+        price: value === 'custom' ? prev.price : '',
+        durationMinutes: value === 'custom' ? prev.durationMinutes : '',
+      }))
+      return
+    }
+
+    const catalogService = servicesCatalog.find(
+      (service) => service.id === value,
+    )
+
+    if (!catalogService) {
+      return
+    }
+
+    setServiceForm((prev) => ({
+      ...prev,
+      serviceId: catalogService.id,
+      title: catalogService.name,
+      price: String(catalogService.price),
+      durationMinutes: catalogService.durationMinutes
+        ? String(catalogService.durationMinutes)
+        : prev.durationMinutes,
+    }))
+  }
+
+  async function handleAddService(event) {
+    event.preventDefault()
+    setServiceError('')
+
+    const servicePrice = Number(serviceForm.price)
+    const duration = Number(serviceForm.durationMinutes)
+
+    if (!serviceForm.title.trim()) {
+      setServiceError('Укажите название работы')
+      return
+    }
+
+    if (
+      serviceForm.price === '' ||
+      !Number.isFinite(servicePrice) ||
+      servicePrice < 0
+    ) {
+      setServiceError('Стоимость работы — неотрицательное число')
+      return
+    }
+
+    if (
+      serviceForm.durationMinutes !== '' &&
+      (!Number.isFinite(duration) || duration < 0)
+    ) {
+      setServiceError('Время выполнения — неотрицательное число минут')
+      return
+    }
+
+    setServiceSaving(true)
+
+    try {
+      await addOrderService(id, {
+        serviceId: serviceForm.serviceId || null,
+        title: serviceForm.title,
+        price: servicePrice,
+        masterId: serviceForm.masterId || null,
+        durationMinutes:
+          serviceForm.durationMinutes === '' ? null : duration,
+      })
+
+      setServiceForm(EMPTY_SERVICE_FORM)
+      setServiceFormOpen(false)
+      await loadOrder()
+    } catch (err) {
+      console.error('Не удалось добавить работу:', err)
+      setServiceError(`Не удалось добавить работу: ${err.message ?? 'попробуйте ещё раз.'}`)
+    } finally {
+      setServiceSaving(false)
+    }
+  }
+
   // ---------------- Ранние выходы ----------------
 
   if (!canView) {
@@ -343,6 +474,15 @@ function OrderDetailPage() {
         >
           ← Назад к заказам
         </Button>
+
+        {canManage ? (
+          <Button
+            className="order-detail-page__back-button"
+            onClick={() => setEditModalOpen(true)}
+          >
+            ✏️ Редактировать
+          </Button>
+        ) : null}
       </div>
 
       {/* Шапка-клипборд: номер, статус, мастер, стоимость */}
@@ -676,8 +816,153 @@ function OrderDetailPage() {
               </div>
             )}
           </Card>
-        </div>
 
+          {/* Работы (услуги) */}
+          <Card className="order-detail-page__panel">
+            <div className="order-detail-page__panel-head">
+              <h2 className="order-detail-page__panel-title">
+                Работы — {orderServices.length}
+              </h2>
+              {canManage ? (
+                <Button
+                  className="order-detail-page__small-button"
+                  onClick={() => setServiceFormOpen((prev) => !prev)}
+                >
+                  {serviceFormOpen ? 'Скрыть форму' : '+ Добавить работу'}
+                </Button>
+              ) : null}
+            </div>
+
+            {serviceFormOpen && canManage ? (
+              <form
+                className="order-detail-page__part-form"
+                onSubmit={handleAddService}
+              >
+                <label className="order-detail-page__field">
+                  <span>Услуга из справочника</span>
+                  <select
+                    className="order-detail-page__input"
+                    value={
+                      serviceForm.serviceId ||
+                      (serviceForm.title ? 'custom' : '')
+                    }
+                    onChange={handleServiceCatalogSelect}
+                  >
+                    <option value="">Выберите услугу...</option>
+                    {servicesCatalog.map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.name} — {formatPrice(service.price)}
+                      </option>
+                    ))}
+                    <option value="custom">Другая работа (ввести вручную)</option>
+                  </select>
+                </label>
+
+                <label className="order-detail-page__field">
+                  <span>Название работы *</span>
+                  <input
+                    className="order-detail-page__input"
+                    type="text"
+                    name="title"
+                    placeholder="Например: Замена разъёма зарядки"
+                    value={serviceForm.title}
+                    onChange={handleServiceFormChange}
+                  />
+                </label>
+
+                <div className="order-detail-page__part-form-row">
+                  <label className="order-detail-page__field">
+                    <span>Стоимость, ₽ *</span>
+                    <input
+                      className="order-detail-page__input"
+                      type="number"
+                      name="price"
+                      min="0"
+                      step="0.01"
+                      value={serviceForm.price}
+                      onChange={handleServiceFormChange}
+                    />
+                  </label>
+
+                  <label className="order-detail-page__field">
+                    <span>Мастер-исполнитель</span>
+                    <select
+                      className="order-detail-page__input"
+                      name="masterId"
+                      value={serviceForm.masterId}
+                      onChange={handleServiceFormChange}
+                    >
+                      <option value="">Не назначен</option>
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.fullName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="order-detail-page__field">
+                    <span>Время, мин</span>
+                    <input
+                      className="order-detail-page__input"
+                      type="number"
+                      name="durationMinutes"
+                      min="0"
+                      step="5"
+                      placeholder="60"
+                      value={serviceForm.durationMinutes}
+                      onChange={handleServiceFormChange}
+                    />
+                  </label>
+                </div>
+
+                {serviceError ? (
+                  <p className="order-detail-page__alert" role="alert">
+                    {serviceError}
+                  </p>
+                ) : null}
+
+                <Button type="submit" disabled={serviceSaving}>
+                  {serviceSaving ? 'Добавление...' : 'Добавить работу'}
+                </Button>
+              </form>
+            ) : null}
+
+            {orderServices.length === 0 ? (
+              <p className="order-detail-page__empty">Работы не добавлены</p>
+            ) : (
+              <div className="order-detail-page__table">
+                <div className="order-detail-page__parts-header order-detail-page__services-header">
+                  <span>Название</span>
+                  <span>Мастер</span>
+                  <span>Время</span>
+                  <span>Стоимость</span>
+                  <span>Дата</span>
+                </div>
+                <ul className="order-detail-page__parts-list">
+                  {orderServices.map((service) => (
+                    <li
+                      key={service.id}
+                      className="order-detail-page__parts-row order-detail-page__services-row"
+                    >
+                      <span>{service.title}</span>
+                      <span>{service.masterName ?? '—'}</span>
+                      <span>
+                        {service.durationMinutes
+                          ? `${service.durationMinutes} мин`
+                          : '—'}
+                      </span>
+                      <span className="order-detail-page__parts-client-price">
+                        {formatPrice(service.price)}
+                      </span>
+                      <span>{formatDate(service.createdAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Card>
+        </div>
 
         {/* Правая колонка */}
         <div className="order-detail-page__column">
@@ -818,6 +1103,14 @@ function OrderDetailPage() {
           </Card>
         </div>
       </div>
+
+      {editModalOpen && canManage ? (
+        <EditOrderModal
+          order={order}
+          onClose={() => setEditModalOpen(false)}
+          onSaved={loadOrder}
+        />
+      ) : null}
 
       {/* Лайтбокс: предпросмотр фотографий */}
       {lightboxUrl ? (

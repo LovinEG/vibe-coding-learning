@@ -12,6 +12,36 @@ async function getCurrentProfileId() {
   return data?.user?.id ?? null
 }
 
+// Инкрементальный пересчёт итоговой стоимости заказа (orders.price):
+// + стоимость при добавлении деталей/работ, - при удалении, чтобы
+// ручная цена работ не терялась. Общий для orderParts и orderServices.
+export async function recalcOrderPrice(orderId, delta) {
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('price')
+    .eq('id', orderId)
+    .single()
+
+  if (orderError) {
+    throw orderError
+  }
+
+  const newPrice = Math.max(0, Number(order?.price ?? 0) + delta)
+
+  const { data: updated, error: updateError } = await supabase
+    .from('orders')
+    .update({ price: newPrice })
+    .eq('id', orderId)
+    .select()
+    .single()
+
+  if (updateError) {
+    throw updateError
+  }
+
+  return updated
+}
+
 const ORDER_SELECT =
   '*, clients(*), devices(*), master_profile:profiles!master_id(full_name)'
 
@@ -484,11 +514,53 @@ export async function createOrder(orderData) {
 }
 
 
-export async function updateOrder(id, fieldsToUpdate) {
+// Обновление заказа. Поддерживает два сценария:
+// 1) инлайн-смена статуса: updateOrder(id, { status: '...' }) — без события;
+// 2) редактирование карточки (ШАГ 3.5): masterId, problemDescription,
+//    appearance, equipment, deviceCondition, estimatedCost, deadlineAt,
+//    repairType — с логированием события 'updated' в историю.
+export async function updateOrder(orderId, updateData = {}) {
+  const updates = {}
+
+  // Прямые поля (инлайн-смена статуса и совместимость).
+  if (updateData.status !== undefined) {
+    updates.status = updateData.status
+  }
+
+  // Поля редактирования карточки.
+  if (updateData.masterId !== undefined) {
+    updates.master_id = updateData.masterId || null
+  }
+  if (updateData.problemDescription !== undefined) {
+    updates.defect = updateData.problemDescription || null
+  }
+  if (updateData.appearance !== undefined) {
+    updates.appearance = updateData.appearance || null
+  }
+  if (updateData.equipment !== undefined) {
+    updates.equipment = updateData.equipment || null
+  }
+  if (updateData.deviceCondition !== undefined) {
+    updates.device_condition = updateData.deviceCondition || null
+  }
+  if (updateData.estimatedCost !== undefined) {
+    updates.price = Number(updateData.estimatedCost) || 0
+  }
+  if (updateData.deadlineAt !== undefined) {
+    updates.deadline_at = updateData.deadlineAt || null
+  }
+  if (updateData.repairType !== undefined) {
+    updates.repair_type = updateData.repairType || null
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new Error('updateOrder: не переданы поля для обновления')
+  }
+
   const { data, error } = await supabase
     .from('orders')
-    .update(fieldsToUpdate)
-    .eq('id', id)
+    .update(updates)
+    .eq('id', orderId)
     .select()
 
   if (error) {
@@ -496,11 +568,132 @@ export async function updateOrder(id, fieldsToUpdate) {
   }
 
   if (!data || data.length === 0) {
-    throw new Error(`Заказ с id ${id} не найден или не был обновлён`)
+    throw new Error(`Заказ с id ${orderId} не найден или не был обновлён`)
   }
 
-  return data[0]
+  // Событие журналируется только при редактировании карточки
+  // (инлайн-смена статуса логируется отдельными событиями).
+  const editFields = [
+    'masterId',
+    'problemDescription',
+    'appearance',
+    'equipment',
+    'deviceCondition',
+    'estimatedCost',
+    'deadlineAt',
+    'repairType',
+  ]
+
+  if (editFields.some((field) => updateData[field] !== undefined)) {
+    await logOrderEvent({
+      orderId,
+      status: 'updated',
+      title: 'Данные заказа обновлены',
+    })
+  }
+
+  return mapOrder(data[0])
 }
+
+// ---------------------------------------------------------------------
+// Работы / услуги по заказу (ШАГ 3.5)
+// ---------------------------------------------------------------------
+
+// Добавление работы: запись в order_services + пересчёт итоговой
+// стоимости заказа + событие 'service_added' в хронологии.
+// serviceData: { serviceId, title, price, masterId, durationMinutes }.
+export async function addOrderService(orderId, serviceData = {}) {
+  const {
+    serviceId = null,
+    title,
+    price,
+    masterId = null,
+    durationMinutes = null,
+  } = serviceData
+
+  if (!orderId) {
+    throw new Error('addOrderService: требуется orderId')
+  }
+
+  const serviceTitle = title?.trim()
+
+  if (!serviceTitle) {
+    throw new Error('addOrderService: требуется название работы')
+  }
+
+  const servicePrice = Number(price)
+
+  if (!Number.isFinite(servicePrice) || servicePrice < 0) {
+    throw new Error('addOrderService: стоимость работы — неотрицательное число')
+  }
+
+  const { data: created, error: insertError } = await supabase
+    .from('order_services')
+    .insert({
+      order_id: orderId,
+      service_id: serviceId || null,
+      title: serviceTitle,
+      price: servicePrice,
+      master_id: masterId || null,
+      duration_minutes:
+        durationMinutes === null || durationMinutes === '' || durationMinutes === undefined
+          ? null
+          : Number(durationMinutes),
+    })
+    .select()
+    .single()
+
+  if (insertError) {
+    throw insertError
+  }
+
+  // Пересчёт итоговой стоимости заказа (+ стоимость работы).
+  const order = await recalcOrderPrice(orderId, servicePrice)
+
+  await logOrderEvent({
+    orderId,
+    status: 'service_added',
+    title: `Добавлена работа: ${serviceTitle}`,
+    comment: `${formatMoney(servicePrice)}${
+      masterId ? ' · мастер назначен' : ''
+    }`,
+    createdBy: masterId ?? null,
+  })
+
+  return { orderService: created, order }
+}
+
+// Работы по заказу с исполнителем (мастером) и связью со справочником.
+export async function getOrderServices(orderId) {
+  const { data, error } = await supabase
+    .from('order_services')
+    .select(
+      '*, service:services(name), master_profile:profiles!master_id(full_name)',
+    )
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    orderId: row.order_id,
+    serviceId: row.service_id ?? null,
+    title: row.title,
+    price: Number(row.price) || 0,
+    masterId: row.master_id ?? null,
+    masterName: row.master_profile?.full_name ?? null,
+    durationMinutes: row.duration_minutes ?? null,
+    createdAt: row.created_at,
+  }))
+}
+
+function formatMoney(value) {
+  return `${new Intl.NumberFormat('ru-RU').format(Number(value) || 0)} ₽`
+}
+
 
 export async function deleteOrder(orderNumber) {
   const { data, error } = await supabase

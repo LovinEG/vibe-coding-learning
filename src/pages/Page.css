@@ -4353,3 +4353,12 @@
   white-space: nowrap;
 }
 
+
+/* ---------- OrderDetailPage: работы/услуги (ШАГ 3.5) ---------- */
+
+.order-detail-page__services-header,
+.order-detail-page__services-row {
+  grid-template-columns: 1.8fr 1fr 0.7fr 0.9fr 0.8fr;
+  min-width: 0;
+}
+

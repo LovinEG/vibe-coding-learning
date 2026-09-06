@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { logOrderEvent, mapOrderPart } from './orders'
+import { logOrderEvent, mapOrderPart, recalcOrderPrice } from './orders'
 
 // id текущего пользователя — он же profiles.id (1:1 с auth.users).
 async function getCurrentProfileId() {
@@ -12,36 +12,8 @@ async function getCurrentProfileId() {
   return data?.user?.id ?? null
 }
 
-// Итоговая сумма заказа (orders.price) складывается из базовой стоимости
-// работ (задаётся при создании заказа) и стоимости списанных запчастей.
-// Пересчёт выполняется инкрементально: + стоимость при добавлении,
-// - при удалении, чтобы ручная цена работ не терялась.
-async function recalcOrderPrice(orderId, delta) {
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .select('price')
-    .eq('id', orderId)
-    .single()
-
-  if (orderError) {
-    throw orderError
-  }
-
-  const newPrice = Math.max(0, Number(order?.price ?? 0) + delta)
-
-  const { data: updated, error: updateError } = await supabase
-    .from('orders')
-    .update({ price: newPrice })
-    .eq('id', orderId)
-    .select()
-    .single()
-
-  if (updateError) {
-    throw updateError
-  }
-
-  return updated
-}
+// Итоговая сумма заказа: базовая стоимость работ + детали + доп. работы.
+// recalcOrderPrice — общий хелпер, живёт в orders.js.
 
 // Список деталей, списанных на заказ (с данными номенклатуры,
 // ценообразованием закупка+наценка и автором добавления).
