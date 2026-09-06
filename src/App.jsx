@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage.jsx'
 import OrderDetailPage from './pages/OrderDetailPage.jsx'
 import OrdersPage from './pages/OrdersPage.jsx'
 import ClientsPage from './pages/ClientsPage.jsx'
+import ClientDetailPage from './pages/ClientDetailPage.jsx'
 import InventoryPage from './pages/InventoryPage.jsx'
 import SuppliersPage from './pages/SuppliersPage.jsx'
 import StockBatchesPage from './pages/StockBatchesPage.jsx'
@@ -39,6 +40,7 @@ function App() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="clients" element={<ClientsPage />} />
+            <Route path="clients/:id" element={<ClientDetailPage />} />
             <Route path="devices" element={<DevicesPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="operations" element={<OperationsPage />} />

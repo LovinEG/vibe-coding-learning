@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 // завершающий статус в CRM; «completed» оставлен как алиас на будущее.
 const COMPLETED_STATUSES = ['Выдан', 'completed', 'issued']
 
-const CLIENT_SELECT = '*, devices(*), orders(status, price, accepted_at, devices(brand, model))'
+const CLIENT_SELECT =
+  '*, devices(*), orders(status, price, accepted_at, defect, devices(brand, model))'
 
 function mapClient(row) {
   const orders = row.orders ?? []
@@ -88,6 +89,7 @@ export async function getClientById(clientId) {
       device: order.devices
         ? `${order.devices.brand || ''} ${order.devices.model || ''}`.trim()
         : null,
+      defect: order.defect ?? null,
       acceptedAt: order.accepted_at,
       price: Number(order.price) || 0,
     }))
