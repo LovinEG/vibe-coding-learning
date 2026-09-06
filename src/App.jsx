@@ -16,6 +16,7 @@ import PaymentsPage from './pages/PaymentsPage.jsx'
 import OperationsPage from './pages/OperationsPage.jsx'
 import TransactionsAuditPage from './pages/TransactionsAuditPage.jsx'
 import CashRegistersPage from './pages/CashRegistersPage.jsx'
+import UsersPage from './pages/UsersPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
               path="stock-movements"
               element={<StockMovementsPage />}
             />
+            <Route path="users" element={<UsersPage />} />
             {/* Catch-all: неизвестные пути (включая будущие разделы)
                 уводим на Дашборд вместо пустой страницы */}
             <Route path="*" element={<Navigate to="/" replace />} />

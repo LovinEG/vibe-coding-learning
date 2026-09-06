@@ -43,9 +43,9 @@ const NAV_SECTIONS = [
   },
   {
     title: 'Команда',
-    permission: 'team.manage',
+    permission: 'iam.manage',
     items: [
-      { label: 'Сотрудники', soon: true },
+      { to: '/users', label: 'Сотрудники' },
       { label: 'Роли', soon: true },
     ],
   },
@@ -60,15 +60,14 @@ const NAV_SECTIONS = [
 
 function Sidebar({ isOpen, onNavigate }) {
   // Хуки вызываются безусловно и в фиксированном порядке (правила хуков).
-  // finance.view добавлен миграцией касс (ШАГ 6); team.manage пока
-  // отсутствует в справочнике permissions — раздел «Команда» видят
-  // только админы (админ-обход в usePermission), а после добавления
-  // права в миграцию доступ станет гранулярным.
+  // finance.view добавлен миграцией касс (ШАГ 6); iam.manage добавлен
+  // миграцией IAM (ШАГ 10) — раздел «Команда» виден пользователям с правом
+  // iam.manage или админам (админ-обход в usePermission).
   const permissions = {
     'orders.view': usePermission('orders.view'),
     'inventory.read': usePermission('inventory.read'),
     'finance.view': usePermission('finance.view'),
-    'team.manage': usePermission('team.manage'),
+    'iam.manage': usePermission('iam.manage'),
   }
 
   const visibleSections = NAV_SECTIONS.filter(
