@@ -3,6 +3,7 @@ import AppLayout from './components/layout/AppLayout.jsx'
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import { AuthProvider } from './lib/AuthContext.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
+import OrderDetailPage from './pages/OrderDetailPage.jsx'
 import OrdersPage from './pages/OrdersPage.jsx'
 import ClientsPage from './pages/ClientsPage.jsx'
 import InventoryPage from './pages/InventoryPage.jsx'
@@ -36,6 +37,7 @@ function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="orders" element={<OrdersPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="devices" element={<DevicesPage />} />
             <Route path="payments" element={<PaymentsPage />} />

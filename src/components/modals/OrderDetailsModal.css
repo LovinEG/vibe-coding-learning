@@ -37,6 +37,18 @@
   letter-spacing: -0.02em;
 }
 
+.order-details-modal__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-details-modal__open-card {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
 .order-details-modal__close {
   width: 32px;
   height: 32px;

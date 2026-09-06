@@ -1,9 +1,13 @@
+import { useNavigate } from 'react-router-dom'
 import OrderPartsManager from '../OrderPartsManager'
+import Button from '../ui/Button'
 import { formatDate, formatPrice } from '../../lib/format'
 import './OrderDetailsModal.css'
 
 // Модальное окно детализации заказа: сводка + управление запчастями.
 function OrderDetailsModal({ open, order, onClose, onPriceChange }) {
+  const navigate = useNavigate()
+
   if (!open || !order) {
     return null
   }
@@ -27,14 +31,22 @@ function OrderDetailsModal({ open, order, onClose, onPriceChange }) {
           <h2 id="order-details-title" className="order-details-modal__title">
             Заказ {order.orderNumber}
           </h2>
-          <button
-            type="button"
-            className="order-details-modal__close"
-            onClick={onClose}
-            aria-label="Закрыть"
-          >
-            ×
-          </button>
+          <div className="order-details-modal__head-actions">
+            <Button
+              className="order-details-modal__open-card"
+              onClick={() => navigate(`/orders/${order.id}`)}
+            >
+              Открыть полную карточку
+            </Button>
+            <button
+              type="button"
+              className="order-details-modal__close"
+              onClick={onClose}
+              aria-label="Закрыть"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <dl className="order-details-modal__summary">
