@@ -6,6 +6,7 @@ import {
   buildFinanceSummary,
   buildStockWarnings,
 } from '../data/dashboard'
+import { isOverdueOrder } from '../data/orders'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { useAuth } from '../lib/useAuth'
 import Button from '../components/ui/Button'
@@ -165,15 +166,15 @@ function DashboardPage() {
 
   const metricCards = [
     {
-      label: 'Активные заказы',
+      label: 'В работе',
       value: String(metrics.activeOrders),
-      to: '/orders?status=active',
+      to: '/orders',
       accent: false,
     },
     {
-      label: 'Просроченные',
+      label: 'Просрочено / SLA',
       value: String(metrics.overdueOrders),
-      to: '/orders?status=overdue',
+      to: '/orders?overdue=true',
       accent: metrics.overdueOrders > 0,
     },
     {
@@ -189,9 +190,9 @@ function DashboardPage() {
       accent: false,
     },
     {
-      label: 'Ожидают согласования',
+      label: 'Требуют согласования',
       value: String(metrics.awaitingApproval),
-      to: '/orders?status=new',
+      to: '/orders?approval=pending',
       accent: false,
     },
     {
@@ -235,7 +236,7 @@ function DashboardPage() {
         </div>
 
         <div className="dashboard-page__actions">
-          <Button onClick={() => setIsCreateOpen(true)}>+ Создать заказ</Button>
+          <Button onClick={() => setIsCreateOpen(true)}>+ Новый заказ</Button>
           <Button
             className="dashboard-page__action--secondary"
             onClick={() => go('/clients')}
@@ -315,7 +316,7 @@ function DashboardPage() {
                 <button
                   type="button"
                   className="dashboard-page__stock-head"
-                  onClick={() => go('/inventory')}
+                  onClick={() => go('/warehouse')}
                 >
                   <span>⚠️ Заканчиваются</span>
                   <span className="dashboard-page__stock-count">
@@ -332,7 +333,7 @@ function DashboardPage() {
                 <button
                   type="button"
                   className="dashboard-page__stock-head"
-                  onClick={() => go('/inventory')}
+                  onClick={() => go('/warehouse')}
                 >
                   <span>🔴 Отсутствуют</span>
                   <span className="dashboard-page__stock-count">
@@ -450,10 +451,20 @@ function DashboardPage() {
                 <li
                   key={order.id}
                   className="dashboard-page__table-row"
-                  onClick={() => go('/orders')}
+                  onClick={() => go(`/orders/${order.id}`)}
                 >
                   <span className="dashboard-page__order-number">
                     {order.orderNumber}
+                    {isOverdueOrder(order) ? (
+                      <span className="orders-page__overdue-badge dashboard-page__overdue-badge">
+                        ⏰ Просрочено
+                      </span>
+                    ) : null}
+                    {order.approvalStatus === 'pending' ? (
+                      <span className="orders-page__overdue-badge dashboard-page__overdue-badge dashboard-page__overdue-badge--approval">
+                        📤 Ожидает согласования
+                      </span>
+                    ) : null}
                   </span>
                   <span>{order.client ?? '—'}</span>
                   <span>{order.device ?? '—'}</span>

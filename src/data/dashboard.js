@@ -218,7 +218,21 @@ export function buildActionItems({
 }) {
   const items = []
 
-  // 1. Клиенту нужно позвонить — заказы, готовые к выдаче.
+  // 1. Ожидается решение клиента — смета отправлена (approval_status = pending).
+  for (const order of orders
+    .filter((o) => o.approvalStatus === 'pending')
+    .slice(0, 2)) {
+    items.push({
+      id: `approval-${order.id}`,
+      icon: '📤',
+      title: 'Ожидается согласование клиента',
+      description: `Заказ ${order.orderNumber} · ${order.client} · смета отправлена`,
+      to: '/orders?approval=pending',
+      actionLabel: 'Открыть',
+    })
+  }
+
+  // 2. Клиенту нужно позвонить — заказы, готовые к выдаче.
   for (const order of orders.filter((o) => o.status === 'Готово к выдаче').slice(0, 3)) {
     items.push({
       id: `ready-${order.id}`,
@@ -239,7 +253,7 @@ export function buildActionItems({
       icon: '⏰',
       title: 'Просрочен ремонт',
       description: `Заказ ${order.orderNumber} · ${order.client} · принят ${formatDay(order.acceptedAt)}`,
-      to: '/orders?status=overdue',
+      to: '/orders?overdue=true',
       actionLabel: 'Открыть',
     })
   }

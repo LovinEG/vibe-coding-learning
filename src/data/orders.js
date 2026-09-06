@@ -210,6 +210,12 @@ export async function getOrders(filters = {}) {
     query = query.eq('repair_type', filters.repairType)
   }
 
+  // Статус согласования: pending / approved / rejected / not_required
+  // (дашборд: /orders?approval=pending).
+  if (filters.approval) {
+    query = query.eq('approval_status', filters.approval)
+  }
+
   if (filters.isOverdue) {
     const nowIso = new Date().toISOString()
     const slaCutoff = new Date()

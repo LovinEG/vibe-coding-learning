@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import CreateOrderModal from '../components/modals/CreateOrderModal'
 import StatusDropdown from '../components/ui/StatusDropdown'
@@ -25,20 +25,59 @@ const DATE_FILTERS = [
   { value: 'month', label: 'За месяц' },
 ]
 
+// Маппинг query-параметров дашборда (/orders?status=...) на фильтры страницы.
+const STATUS_PARAM_MAP = {
+  new: 'Новый',
+  'in-work': 'В работе',
+  waiting: 'Ожидает деталь',
+  ready: 'Готово к выдаче',
+  active: 'Все',
+  overdue: 'Просроченные',
+}
+
 function OrdersPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Дашборд передаёт предустановленные фильтры через query-параметры:
+  // /orders?status=..., /orders?overdue=true, /orders?approval=pending, /orders?q=...
+  const initialOverdue = searchParams.get('overdue') === 'true'
+  const initialApproval = searchParams.get('approval') ?? ''
 
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [activeFilter, setActiveFilter] = useState('Все')
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
+  const [debouncedSearch, setDebouncedSearch] = useState(
+    () => searchParams.get('q') ?? '',
+  )
+  const [activeFilter, setActiveFilter] = useState(() => {
+    const statusParam = searchParams.get('status')
+
+    if (initialOverdue) {
+      return 'Все'
+    }
+
+    if (initialApproval) {
+      return 'Все'
+    }
+
+    if (statusParam === 'overdue') {
+      return 'Просроченные'
+    }
+
+    return STATUS_PARAM_MAP[statusParam] ?? 'Все'
+  })
+  const [approvalFilter, setApprovalFilter] = useState(initialApproval)
+  const [overdueOnly, setOverdueOnly] = useState(initialOverdue)
   const [masterFilter, setMasterFilter] = useState('all')
   const [repairTypeFilter, setRepairTypeFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
-  const [overdueOnly, setOverdueOnly] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  // Если фильтры заданы URL-параметрами — панель сразу раскрыта,
+  // чтобы пользователь видел применённые условия.
+  const [filtersOpen, setFiltersOpen] = useState(
+    Boolean(initialApproval) || initialOverdue,
+  )
   const [employees, setEmployees] = useState([])
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [updatingId, setUpdatingId] = useState(null)
@@ -79,6 +118,7 @@ function OrdersPage() {
           status: activeFilter,
           masterId: masterFilter !== 'all' ? masterFilter : null,
           repairType: repairTypeFilter !== 'all' ? repairTypeFilter : null,
+          approval: approvalFilter !== 'all' ? approvalFilter : null,
           isOverdue: overdueOnly || activeFilter === 'Просроченные',
         })
 
@@ -104,7 +144,14 @@ function OrdersPage() {
     return () => {
       cancelled = true
     }
-  }, [debouncedSearch, activeFilter, masterFilter, repairTypeFilter, overdueOnly])
+  }, [
+    debouncedSearch,
+    activeFilter,
+    masterFilter,
+    repairTypeFilter,
+    approvalFilter,
+    overdueOnly,
+  ])
 
   // Обновление после создания заказа: с текущими фильтрами.
   async function refreshOrders() {
@@ -299,6 +346,24 @@ function OrdersPage() {
                   {filter.label}
                 </option>
               ))}
+            </select>
+          </label>
+
+          <label className="orders-page__filter-field">
+            <span>Согласование</span>
+            <select
+              value={approvalFilter || 'all'}
+              onChange={(event) =>
+                setApprovalFilter(
+                  event.target.value === 'all' ? '' : event.target.value,
+                )
+              }
+            >
+              <option value="all">Все</option>
+              <option value="pending">Ожидают клиента</option>
+              <option value="approved">Согласовано</option>
+              <option value="rejected">Отклонено</option>
+              <option value="not_required">Без согласования</option>
             </select>
           </label>
 

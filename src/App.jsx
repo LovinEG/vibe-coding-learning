@@ -49,6 +49,8 @@ function App() {
             <Route path="tasks" element={<TasksPage />} />
             <Route path="cash-registers" element={<CashRegistersPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            {/* Складской алиас: складские алерты дашборда ведут на /warehouse */}
+            <Route path="warehouse" element={<InventoryPage />} />
             <Route path="suppliers" element={<SuppliersPage />} />
             <Route path="stock-batches" element={<StockBatchesPage />} />
             <Route path="consumables" element={<ConsumablesPage />} />

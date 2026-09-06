@@ -4362,3 +4362,18 @@
   min-width: 0;
 }
 
+
+/* ---------- DashboardPage: индикаторы в таблице заказов ---------- */
+
+.dashboard-page__overdue-badge {
+  display: block;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.dashboard-page__overdue-badge--approval {
+  background: #fef3c7;
+  border-color: color-mix(in srgb, #d97706 40%, transparent);
+  color: #b45309;
+}
+
