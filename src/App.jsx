@@ -14,6 +14,7 @@ import DevicesPage from './pages/DevicesPage.jsx'
 import TasksPage from './pages/TasksPage.jsx'
 import PaymentsPage from './pages/PaymentsPage.jsx'
 import OperationsPage from './pages/OperationsPage.jsx'
+import TransactionsAuditPage from './pages/TransactionsAuditPage.jsx'
 import CashRegistersPage from './pages/CashRegistersPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 
@@ -37,6 +38,10 @@ function App() {
             <Route path="devices" element={<DevicesPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="operations" element={<OperationsPage />} />
+            <Route
+              path="transactions"
+              element={<TransactionsAuditPage />}
+            />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="cash-registers" element={<CashRegistersPage />} />
             <Route path="inventory" element={<InventoryPage />} />

@@ -38,6 +38,7 @@ const NAV_SECTIONS = [
       { to: '/cash-registers', label: 'Кассы' },
       { to: '/payments', label: 'Оплаты' },
       { to: '/operations', label: 'Операции' },
+      { to: '/transactions', label: 'Транзакции' },
     ],
   },
   {
