@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { logOrderEvent, mapOrderPart } from './orders'
 
 // id текущего пользователя — он же profiles.id (1:1 с auth.users).
 async function getCurrentProfileId() {
@@ -42,11 +43,12 @@ async function recalcOrderPrice(orderId, delta) {
   return updated
 }
 
-// Список деталей, списанных на заказ (с данными номенклатуры).
+// Список деталей, списанных на заказ (с данными номенклатуры,
+// ценообразованием закупка+наценка и автором добавления).
 export async function getOrderParts(orderId) {
   const { data, error } = await supabase
     .from('order_parts')
-    .select('*, parts(id, sku, name, category)')
+    .select('*, parts(id, sku, name, category), added_by_profile:profiles!added_by(full_name)')
     .eq('order_id', orderId)
     .order('created_at', { ascending: true })
 
@@ -54,40 +56,67 @@ export async function getOrderParts(orderId) {
     throw error
   }
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    orderId: row.order_id,
-    partId: row.part_id,
-    partName: row.parts?.name ?? '—',
-    partSku: row.parts?.sku ?? '—',
-    quantity: row.quantity,
-    priceAtTime: row.price_at_time === null ? null : Number(row.price_at_time),
-    sum: Number(row.price_at_time ?? 0) * Number(row.quantity ?? 0),
-  }))
+  return (data ?? []).map(mapOrderPart)
 }
 
-// Списание детали на заказ: запись в order_parts + движение 'expense'
-// + пересчёт итоговой суммы заказа.
-export async function addPartToOrder({
-  orderId,
-  partId,
-  quantity,
-  priceAtTime,
-}) {
-  const profileId = await getCurrentProfileId()
+// Списание детали на заказ: запись в order_parts (закупка + наценка) +
+// движение 'expense' + пересчёт итоговой суммы заказа + событие 'part_added'
+// в хронологии заказа.
+//
+// partData: { partId, quantity, purchasePrice, markup, addedBy }.
+// clientPrice считается автоматически: purchasePrice + markup.
+// Легаси-совместимость: если закупочные данные не переданы, но есть
+// priceAtTime (розничная цена), клиентская цена = priceAtTime.
+export async function addOrderPart(orderId, partData = {}) {
+  const {
+    partId,
+    quantity,
+    purchasePrice = null,
+    markup = null,
+    addedBy = null,
+    priceAtTime = null,
+  } = partData
+
+  if (!orderId || !partId) {
+    throw new Error('addOrderPart: требуются orderId и partId')
+  }
+
   const qty = Number(quantity)
 
-  // 1. Привязка детали к заказу.
+  if (!Number.isInteger(qty) || qty < 1) {
+    throw new Error('Количество должно быть целым числом не меньше 1')
+  }
+
+  // Итоговая цена для клиента: закупка + наценка.
+  let clientPrice = null
+
+  if (purchasePrice != null && markup != null) {
+    clientPrice = Number(purchasePrice) + Number(markup)
+  } else if (priceAtTime != null) {
+    // Легаси-режим: розничная цена была фактической ценой клиента.
+    clientPrice = Number(priceAtTime)
+  }
+
+  // Автор добавления: переданный addedBy или текущий пользователь сессии.
+  const profileId = addedBy ?? (await getCurrentProfileId())
+
+  // 1. Привязка детали к заказу с точным ценообразованием.
   const { data: created, error: insertError } = await supabase
     .from('order_parts')
     .insert({
       order_id: orderId,
       part_id: partId,
       quantity: qty,
-      price_at_time: priceAtTime ?? null,
+      // price_at_time дублирует client_price для обратной совместимости
+      // (removePartFromOrder и старые выборки читают эту колонку).
+      price_at_time: clientPrice,
+      purchase_price: purchasePrice,
+      markup,
+      client_price: clientPrice,
       master_id: profileId,
+      added_by: profileId,
     })
-    .select()
+    .select('*, parts(name)')
     .single()
 
   if (insertError) {
@@ -109,8 +138,22 @@ export async function addPartToOrder({
     throw movementError
   }
 
-  // 3. Финансовый пересчёт заказа.
-  const order = await recalcOrderPrice(orderId, Number(priceAtTime ?? 0) * qty)
+  // 3. Финансовый пересчёт заказа (+ стоимость деталей).
+  const order = await recalcOrderPrice(orderId, Number(clientPrice ?? 0) * qty)
+
+  // 4. Событие в хронологии заказа.
+  const partName = created?.parts?.name ?? 'деталь'
+
+  await logOrderEvent({
+    orderId,
+    status: 'part_added',
+    title: `Добавлена деталь: ${partName}`,
+    comment:
+      clientPrice != null
+        ? `${qty} шт. × ${clientPrice} ₽ = ${Number(clientPrice) * qty} ₽`
+        : `${qty} шт.`,
+    createdBy: profileId,
+  })
 
   return { orderPart: created, order }
 }

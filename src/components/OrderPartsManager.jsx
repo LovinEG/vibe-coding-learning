@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getParts } from '../data/inventory'
 import {
-  addPartToOrder,
+  addOrderPart,
   getOrderParts,
   removePartFromOrder,
 } from '../data/orderParts'
@@ -113,11 +113,14 @@ function OrderPartsManager({ orderId, onPriceChange }) {
     setBusyAction('add')
 
     try {
-      // price_at_time фиксируем по текущей розничной цене детали.
-      const { order } = await addPartToOrder({
-        orderId,
+      // Цена для клиента: закупка + наценка. Пока в каталоге запчастей
+      // не ведутся закупочные цены — работаем в легаси-режиме, фиксируя
+      // розничную цену как клиентскую (priceAtTime).
+      const { order } = await addOrderPart(orderId, {
         partId: selectedPart.id,
         quantity: qty,
+        purchasePrice: null,
+        markup: null,
         priceAtTime: selectedPart.retailPrice,
       })
 
