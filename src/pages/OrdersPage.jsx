@@ -1,64 +1,94 @@
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import CreateOrderModal from '../components/modals/CreateOrderModal'
-import OrderDetailsModal from '../components/modals/OrderDetailsModal'
 import StatusDropdown from '../components/ui/StatusDropdown'
-import { getOrders, updateOrder } from '../data/orders'
+import {
+  exportOrdersToCsv,
+  getOrders,
+  isOverdueOrder,
+  REPAIR_TYPE_OPTIONS,
+  updateOrder,
+} from '../data/orders'
+import { getEmployees } from '../data/tasks'
 import { formatDate, formatPrice } from '../lib/format'
 import './Page.css'
 
 const STATUSES = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
 const FILTERS = ['Все', ...STATUSES, 'Просроченные']
 
-// Маппинг query-параметров дашборда (/orders?status=...) на фильтры страницы.
-const STATUS_PARAM_MAP = {
-  new: 'Новый',
-  'in-work': 'В работе',
-  waiting: 'Ожидает деталь',
-  ready: 'Готово к выдаче',
-  active: 'Все',
-  overdue: 'Просроченные',
-}
-
-// SLA ремонта: в схеме orders нет дедлайна, просрочка считается
-// от даты приёма (accepted_at) + 7 календарных дней.
-const OVERDUE_SLA_DAYS = 7
-
-function isOverdueOrder(order, now = new Date()) {
-  const issued = order.status === 'Выдан'
-  if (issued || !order.acceptedAt) {
-    return false
-  }
-  const deadline = new Date(order.acceptedAt)
-  deadline.setDate(deadline.getDate() + OVERDUE_SLA_DAYS)
-  return deadline < now
-}
+// Периоды для фильтра по дате приёма (скользящие окна от сегодня).
+const DATE_FILTERS = [
+  { value: 'all', label: 'За всё время' },
+  { value: 'today', label: 'За сегодня' },
+  { value: 'week', label: 'За неделю' },
+  { value: 'month', label: 'За месяц' },
+]
 
 function OrdersPage() {
-  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
-  const [activeFilter, setActiveFilter] = useState(
-    () => STATUS_PARAM_MAP[searchParams.get('status')] ?? 'Все',
-  )
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [activeFilter, setActiveFilter] = useState('Все')
+  const [masterFilter, setMasterFilter] = useState('all')
+  const [repairTypeFilter, setRepairTypeFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState('all')
+  const [overdueOnly, setOverdueOnly] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [employees, setEmployees] = useState([])
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [updatingId, setUpdatingId] = useState(null)
-  const [detailsOrder, setDetailsOrder] = useState(null)
 
+  // Дебаунс поиска: не дёргаем сервер на каждый символ.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350)
+
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Справочник мастеров для фильтра.
+  useEffect(() => {
+    let cancelled = false
+
+    getEmployees()
+      .then((data) => {
+        if (!cancelled) {
+          setEmployees(data ?? [])
+        }
+      })
+      .catch((err) => console.error('Не удалось загрузить мастеров:', err))
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Серверная загрузка с фильтрами; обновления «тихие» — список на экране
+  // не мигает лоадером при смене фильтров.
   useEffect(() => {
     let cancelled = false
 
     async function loadOrders() {
       try {
-        const result = await getOrders()
+        const result = await getOrders({
+          search: debouncedSearch,
+          status: activeFilter,
+          masterId: masterFilter !== 'all' ? masterFilter : null,
+          repairType: repairTypeFilter !== 'all' ? repairTypeFilter : null,
+          isOverdue: overdueOnly || activeFilter === 'Просроченные',
+        })
+
         if (!cancelled) {
           setOrders(result)
+          setError('')
         }
       } catch (err) {
         console.error('Не удалось загрузить заказы:', err)
+
         if (!cancelled) {
           setError('Не удалось загрузить заказы. Попробуйте обновить страницу.')
         }
@@ -74,20 +104,24 @@ function OrdersPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [debouncedSearch, activeFilter, masterFilter, repairTypeFilter, overdueOnly])
 
+  // Обновление после создания заказа: с текущими фильтрами.
   async function refreshOrders() {
-    setLoading(true)
     setError('')
 
     try {
-      const result = await getOrders()
+      const result = await getOrders({
+        search: debouncedSearch,
+        status: activeFilter,
+        masterId: masterFilter !== 'all' ? masterFilter : null,
+        repairType: repairTypeFilter !== 'all' ? repairTypeFilter : null,
+        isOverdue: overdueOnly || activeFilter === 'Просроченные',
+      })
       setOrders(result)
     } catch (err) {
       console.error('Не удалось загрузить заказы:', err)
       setError('Не удалось загрузить заказы. Попробуйте обновить страницу.')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -117,45 +151,69 @@ function OrdersPage() {
     }
   }
 
-  // Обновление цены из модалки деталей (после списания/возврата запчастей):
-  // синхронно правим строку таблицы и открытую модалку.
-  function handlePriceChange(orderId, newPrice) {
-    setOrders((prev) =>
-      prev.map((item) =>
-        item.id === orderId ? { ...item, price: newPrice } : item,
-      ),
-    )
-    setDetailsOrder((prev) =>
-      prev && prev.id === orderId ? { ...prev, price: newPrice } : prev,
-    )
-  }
+  // Клиентская допфильтрация по дате приёма (скользящее окно).
+  const dateCutoff = useMemo(() => {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
 
-  const normalizedSearch = search.trim().toLowerCase()
-  const visibleOrders = orders.filter((order) => {
-    if (activeFilter === 'Просроченные') {
-      if (!isOverdueOrder(order)) {
-        return false
-      }
-    } else if (activeFilter !== 'Все' && order.status !== activeFilter) {
-      return false
+    if (dateFilter === 'today') {
+      return start
     }
 
-    if (!normalizedSearch) {
-      return true
+    if (dateFilter === 'week') {
+      const week = new Date(start)
+      week.setDate(week.getDate() - 7)
+      return week
     }
 
-    return [order.orderNumber, order.client, order.device]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(normalizedSearch)
-  })
+    if (dateFilter === 'month') {
+      const month = new Date(start)
+      month.setMonth(month.getMonth() - 1)
+      return month
+    }
+
+    return null
+  }, [dateFilter])
+
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        if (
+          dateCutoff &&
+          order.acceptedAt &&
+          new Date(order.acceptedAt) < dateCutoff
+        ) {
+          return false
+        }
+
+        return true
+      }),
+    [orders, dateCutoff],
+  )
 
   return (
     <section className="page">
       <div className="orders-page__head">
         <h1 className="page__title">Заказы</h1>
-        <Button onClick={() => setIsCreateOpen(true)}>Новый заказ</Button>
+        <div className="orders-page__actions">
+          <Button onClick={() => setIsCreateOpen(true)}>+ Создать заказ</Button>
+          <Button
+            className="orders-page__action-button"
+            onClick={() => exportOrdersToCsv(visibleOrders)}
+            disabled={visibleOrders.length === 0}
+          >
+            Экспорт CSV
+          </Button>
+          <Button
+            className={`orders-page__action-button${
+              filtersOpen ? ' orders-page__action-button--active' : ''
+            }`}
+            onClick={() => setFiltersOpen((prev) => !prev)}
+            aria-expanded={filtersOpen}
+          >
+            Фильтры
+          </Button>
+        </div>
       </div>
 
       <input
@@ -163,7 +221,7 @@ function OrdersPage() {
         type="search"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
-        placeholder="Поиск по номеру, клиенту или устройству..."
+        placeholder="Поиск по №, клиенту, телефону, устройству, IMEI или SN..."
         aria-label="Поиск заказов"
       />
 
@@ -183,6 +241,77 @@ function OrdersPage() {
           </button>
         ))}
       </div>
+
+      {filtersOpen ? (
+        <div className="orders-page__filters-panel">
+          <label className="orders-page__filter-field">
+            <span>Статус</span>
+            <select
+              value={activeFilter}
+              onChange={(event) => setActiveFilter(event.target.value)}
+            >
+              {FILTERS.map((filter) => (
+                <option key={filter} value={filter}>
+                  {filter}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="orders-page__filter-field">
+            <span>Мастер</span>
+            <select
+              value={masterFilter}
+              onChange={(event) => setMasterFilter(event.target.value)}
+            >
+              <option value="all">Все мастера</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.fullName}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="orders-page__filter-field">
+            <span>Тип ремонта</span>
+            <select
+              value={repairTypeFilter}
+              onChange={(event) => setRepairTypeFilter(event.target.value)}
+            >
+              <option value="all">Все типы</option>
+              {REPAIR_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="orders-page__filter-field">
+            <span>Дата приёма</span>
+            <select
+              value={dateFilter}
+              onChange={(event) => setDateFilter(event.target.value)}
+            >
+              {DATE_FILTERS.map((filter) => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="orders-page__filter-checkbox">
+            <input
+              type="checkbox"
+              checked={overdueOnly}
+              onChange={(event) => setOverdueOnly(event.target.checked)}
+            />
+            <span>Только просроченные</span>
+          </label>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="orders-page__error" role="alert">
@@ -208,16 +337,18 @@ function OrdersPage() {
             {visibleOrders.map((order) => (
               <li
                 key={order.id ?? order.orderNumber}
-                className="orders-page__row"
+                className="orders-page__row orders-page__row--clickable"
+                onClick={() => navigate(`/orders/${order.id}`)}
               >
                 <span className="orders-page__number">
-                  <button
-                    type="button"
-                    className="orders-page__number-link"
-                    onClick={() => setDetailsOrder(order)}
-                  >
+                  <span className="orders-page__number-link">
                     {order.orderNumber}
-                  </button>
+                  </span>
+                  {isOverdueOrder(order) ? (
+                    <span className="orders-page__overdue-badge">
+                      ⏰ Просрочено
+                    </span>
+                  ) : null}
                 </span>
                 <span>
                   <span className="orders-page__client">{order.client}</span>
@@ -232,7 +363,7 @@ function OrdersPage() {
                 <span className="orders-page__price">
                   {formatPrice(order.price)}
                 </span>
-                <span>
+                <span onClick={(event) => event.stopPropagation()}>
                   <StatusDropdown
                     value={order.status}
                     onChange={(newStatus) =>
@@ -258,13 +389,6 @@ function OrdersPage() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onOrderCreated={refreshOrders}
-      />
-
-      <OrderDetailsModal
-        open={Boolean(detailsOrder)}
-        order={detailsOrder}
-        onClose={() => setDetailsOrder(null)}
-        onPriceChange={handlePriceChange}
       />
     </section>
   )

@@ -12,7 +12,8 @@ async function getCurrentProfileId() {
   return data?.user?.id ?? null
 }
 
-const ORDER_SELECT = '*, clients(*), devices(*)'
+const ORDER_SELECT =
+  '*, clients(*), devices(*), master_profile:profiles!master_id(full_name)'
 
 // Детальная выборка заказа: приёмка/диагностика (колонки ШАГ 3.1),
 // список деталей с ценообразованием (закупка + наценка) и автором,
@@ -20,9 +21,31 @@ const ORDER_SELECT = '*, clients(*), devices(*)'
 // Внимание: у order_parts два FK на profiles (master_id и added_by) —
 // PostgREST требует дизамбигуацию через !added_by.
 const ORDER_DETAILS_SELECT =
-  '*, clients(*), devices(*), ' +
+  '*, clients(*), devices(*), master_profile:profiles!master_id(full_name), ' +
   'order_parts(*, parts(id, sku, name, category), added_by_profile:profiles!added_by(full_name)), ' +
   'order_status_history(*, profiles(full_name, avatar_url))'
+
+// Незавершённые статусы — участвуют в расчёте просрочки.
+export const ACTIVE_ORDER_STATUSES = [
+  'Новый',
+  'В работе',
+  'Ожидает деталь',
+  'Готово к выдаче',
+]
+
+// SLA ремонта по умолчанию: если deadline_at не задан, просрочка
+// считается от даты приёма + 7 календарных дней.
+export const OVERDUE_SLA_DAYS = 7
+
+// Каталог типов ремонта для фильтра и формы заказа.
+export const REPAIR_TYPE_OPTIONS = [
+  'Диагностика',
+  'Аппаратный ремонт',
+  'Программный ремонт',
+  'Замена деталей',
+  'Профилактика',
+  'Другое',
+]
 
 function mapOrder(row) {
   return {
@@ -39,6 +62,12 @@ function mapOrder(row) {
     clientPhone: row.clients?.phone || null,
     clientId: row.client_id,
     deviceId: row.device_id,
+    // Назначенный мастер и рабочий процесс (ШАГ 3.4).
+    masterId: row.master_id ?? null,
+    masterName: row.master_profile?.full_name ?? null,
+    deadlineAt: row.deadline_at ?? null,
+    repairType: row.repair_type ?? null,
+    deviceSerial: row.devices?.serial_number ?? null,
     // Приёмка устройства и диагностика (ШАГ 3.1).
     appearance: row.appearance ?? null,
     equipment: row.equipment ?? null,
@@ -94,9 +123,76 @@ function mapHistoryRow(row) {
   }
 }
 
-// Список заказов для таблицы раздела «Заказы» и дашборда.
-export async function getOrders() {
-  const { data, error } = await supabase.from('orders').select(ORDER_SELECT)
+// Просрочен ли заказ: незавершённый статус и (deadline_at < now
+// либо, при незаданном сроке, приём старше SLA).
+export function isOverdueOrder(order, now = new Date()) {
+  if (!ACTIVE_ORDER_STATUSES.includes(order.status)) {
+    return false
+  }
+
+  if (order.deadlineAt) {
+    return new Date(order.deadlineAt) < now
+  }
+
+  if (!order.acceptedAt) {
+    return false
+  }
+
+  const slaDeadline = new Date(order.acceptedAt)
+  slaDeadline.setDate(slaDeadline.getDate() + OVERDUE_SLA_DAYS)
+  return slaDeadline < now
+}
+
+// Список заказов с серверными фильтрами и мульти-поиском.
+// filters: { search, status, masterId, repairType, isOverdue }.
+// Поиск идёт по № заказа, имени/телефону клиента, бренду/модели
+// устройства и IMEI / серийному номеру (devices.serial_number).
+export async function getOrders(filters = {}) {
+  let query = supabase.from('orders').select(ORDER_SELECT)
+
+  const search = filters.search?.trim()
+
+  if (search) {
+    const pattern = `%${search.replace(/[%_,()]/g, ' ')}%`
+
+    query = query.or(
+      [
+        `order_number.ilike.${pattern}`,
+        `client.ilike.${pattern}`,
+        `clients.name.ilike.${pattern}`,
+        `clients.phone.ilike.${pattern}`,
+        `devices.brand.ilike.${pattern}`,
+        `devices.model.ilike.${pattern}`,
+        `devices.serial_number.ilike.${pattern}`,
+      ].join(','),
+    )
+  }
+
+  if (filters.status && filters.status !== 'Все') {
+    query = query.eq('status', filters.status)
+  }
+
+  if (filters.masterId) {
+    query = query.eq('master_id', filters.masterId)
+  }
+
+  if (filters.repairType) {
+    query = query.eq('repair_type', filters.repairType)
+  }
+
+  if (filters.isOverdue) {
+    const nowIso = new Date().toISOString()
+    const slaCutoff = new Date()
+    slaCutoff.setDate(slaCutoff.getDate() - OVERDUE_SLA_DAYS)
+    const slaIso = slaCutoff.toISOString()
+
+    query = query
+      .in('status', ACTIVE_ORDER_STATUSES)
+      // Просрочен: срок наступил либо (без срока) приём старше SLA.
+      .or(`deadline_at.lt.${nowIso},and(accepted_at.lt.${slaIso},deadline_at.is.null)`)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throw error
@@ -104,6 +200,62 @@ export async function getOrders() {
 
   return (data ?? []).map(mapOrder)
 }
+
+// Экспорт выборки заказов в CSV (Excel-совместимый: BOM + разделитель «;»).
+export function exportOrdersToCsv(ordersList) {
+  const headers = [
+    'Номер заказа',
+    'Клиент',
+    'Телефон',
+    'Устройство',
+    'IMEI / SN',
+    'Статус',
+    'Тип ремонта',
+    'Мастер',
+    'Принят',
+    'Срок',
+    'Просрочен',
+    'Стоимость',
+  ]
+
+  const escapeCell = (value) => {
+    const text = value === null || value === undefined ? '' : String(value)
+    return `"${text.replace(/"/g, '""')}"`
+  }
+
+  const rows = ordersList.map((order) =>
+    [
+      order.orderNumber,
+      order.client,
+      order.clientPhone,
+      order.device,
+      order.deviceSerial,
+      order.status,
+      order.repairType,
+      order.masterName,
+      order.acceptedAt ? new Date(order.acceptedAt).toLocaleDateString('ru-RU') : '',
+      order.deadlineAt ? new Date(order.deadlineAt).toLocaleDateString('ru-RU') : '',
+      isOverdueOrder(order) ? 'Да' : 'Нет',
+      order.price ?? '',
+    ]
+      .map(escapeCell)
+      .join(';'),
+  )
+
+  const csv = ['\uFEFF', headers.map(escapeCell).join(';'), ...rows].join('\r\n')
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 
 
 // ---------------------------------------------------------------------
