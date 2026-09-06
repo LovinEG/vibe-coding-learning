@@ -52,8 +52,8 @@ const NAV_SECTIONS = [
   {
     title: 'Аналитика',
     items: [
+      { to: '/ai-assistant', label: 'AI Ассистент' },
       { label: 'Отчёты', soon: true },
-      { label: 'AI-Помощник', soon: true },
     ],
   },
 ]

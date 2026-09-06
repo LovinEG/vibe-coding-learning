@@ -15,6 +15,7 @@ import TasksPage from './pages/TasksPage.jsx'
 import PaymentsPage from './pages/PaymentsPage.jsx'
 import OperationsPage from './pages/OperationsPage.jsx'
 import TransactionsAuditPage from './pages/TransactionsAuditPage.jsx'
+import AiAssistantPage from './pages/AiAssistantPage.jsx'
 import CashRegistersPage from './pages/CashRegistersPage.jsx'
 import UsersPage from './pages/UsersPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
@@ -54,6 +55,7 @@ function App() {
               element={<StockMovementsPage />}
             />
             <Route path="users" element={<UsersPage />} />
+            <Route path="ai-assistant" element={<AiAssistantPage />} />
             {/* Catch-all: неизвестные пути (включая будущие разделы)
                 уводим на Дашборд вместо пустой страницы */}
             <Route path="*" element={<Navigate to="/" replace />} />
