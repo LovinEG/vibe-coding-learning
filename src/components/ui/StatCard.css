@@ -12,3 +12,17 @@
   letter-spacing: -0.02em;
   color: var(--color-text);
 }
+
+/* Gradient variant for key metrics ("В работе", "Выручка") */
+.stat-card--gradient {
+  background: linear-gradient(135deg, var(--color-accent) 0%, #3da87a 100%);
+  box-shadow: 0 4px 16px rgba(45, 145, 102, 0.25);
+}
+
+.stat-card--gradient .stat-card__label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.stat-card--gradient .stat-card__value {
+  color: #ffffff;
+}

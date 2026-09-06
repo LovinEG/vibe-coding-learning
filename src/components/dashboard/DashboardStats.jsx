@@ -44,15 +44,20 @@ function DashboardStats() {
 
   const stats = [
     { label: 'Всего заказов', value: loading ? '—' : String(totalOrders) },
-    { label: 'В работе', value: loading ? '—' : String(inWork) },
+    { label: 'В работе', value: loading ? '—' : String(inWork), variant: 'gradient' },
     { label: 'Завершено', value: loading ? '—' : String(completed) },
-    { label: 'Выручка', value: loading ? '—' : formatPrice(revenue) },
+    { label: 'Выручка', value: loading ? '—' : formatPrice(revenue), variant: 'gradient' },
   ]
 
   return (
     <div className="home-page__stats">
       {stats.map((stat) => (
-        <StatCard key={stat.label} label={stat.label} value={stat.value} />
+        <StatCard
+          key={stat.label}
+          label={stat.label}
+          value={stat.value}
+          variant={stat.variant}
+        />
       ))}
     </div>
   )
