@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import CreateOrderModal from '../components/modals/CreateOrderModal'
 import OrderDetailsModal from '../components/modals/OrderDetailsModal'
@@ -8,14 +9,41 @@ import { formatDate, formatPrice } from '../lib/format'
 import './Page.css'
 
 const STATUSES = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
-const FILTERS = ['Все', ...STATUSES]
+const FILTERS = ['Все', ...STATUSES, 'Просроченные']
+
+// Маппинг query-параметров дашборда (/orders?status=...) на фильтры страницы.
+const STATUS_PARAM_MAP = {
+  new: 'Новый',
+  'in-work': 'В работе',
+  waiting: 'Ожидает деталь',
+  ready: 'Готово к выдаче',
+  active: 'Все',
+  overdue: 'Просроченные',
+}
+
+// SLA ремонта: в схеме orders нет дедлайна, просрочка считается
+// от даты приёма (accepted_at) + 7 календарных дней.
+const OVERDUE_SLA_DAYS = 7
+
+function isOverdueOrder(order, now = new Date()) {
+  const issued = order.status === 'Выдан'
+  if (issued || !order.acceptedAt) {
+    return false
+  }
+  const deadline = new Date(order.acceptedAt)
+  deadline.setDate(deadline.getDate() + OVERDUE_SLA_DAYS)
+  return deadline < now
+}
 
 function OrdersPage() {
+  const [searchParams] = useSearchParams()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [activeFilter, setActiveFilter] = useState('Все')
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
+  const [activeFilter, setActiveFilter] = useState(
+    () => STATUS_PARAM_MAP[searchParams.get('status')] ?? 'Все',
+  )
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [updatingId, setUpdatingId] = useState(null)
   const [detailsOrder, setDetailsOrder] = useState(null)
@@ -104,7 +132,11 @@ function OrdersPage() {
 
   const normalizedSearch = search.trim().toLowerCase()
   const visibleOrders = orders.filter((order) => {
-    if (activeFilter !== 'Все' && order.status !== activeFilter) {
+    if (activeFilter === 'Просроченные') {
+      if (!isOverdueOrder(order)) {
+        return false
+      }
+    } else if (activeFilter !== 'Все' && order.status !== activeFilter) {
       return false
     }
 

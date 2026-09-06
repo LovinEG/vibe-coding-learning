@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/layout/AppLayout.jsx'
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import { AuthProvider } from './lib/AuthContext.jsx'
-import HomePage from './pages/HomePage.jsx'
+import DashboardPage from './pages/DashboardPage.jsx'
 import OrdersPage from './pages/OrdersPage.jsx'
 import ClientsPage from './pages/ClientsPage.jsx'
 import InventoryPage from './pages/InventoryPage.jsx'
@@ -34,7 +34,7 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<HomePage />} />
+            <Route index element={<DashboardPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="devices" element={<DevicesPage />} />
