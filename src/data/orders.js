@@ -439,37 +439,52 @@ export async function updateOrderApproval(orderId, { status, comment, updatedBy 
   return mapOrder(data)
 }
 
-// Создание заказа (единая последовательность из трёх INSERT:
-// клиент → устройство → заказ) с фиксацией данных приёмки.
+// Создание заказа. Поддерживает два режима клиента/устройства:
+// 1) быстрый ввод нового (client/clientPhone/brand/device/serialNumber);
+// 2) существующие записи (clientId и/или deviceId — их создание пропускается).
+// Фиксирует данные приёмки и параметры рабочего процесса (ШАГ 3.6):
+// masterId, repairType, deadlineAt.
 export async function createOrder(orderData) {
-  // 1. Создаём клиента
-  const { data: clientData, error: clientError } = await supabase
-    .from('clients')
-    .insert({
-      name: orderData.client,
-      phone: orderData.clientPhone || '',
-    })
-    .select()
-    .single()
+  // 1. Клиент: передан clientId — используем существующего, иначе создаём.
+  let clientId = orderData.clientId ?? null
 
-  if (clientError) {
-    throw clientError
+  if (!clientId) {
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .insert({
+        name: orderData.client,
+        phone: orderData.clientPhone || '',
+      })
+      .select()
+      .single()
+
+    if (clientError) {
+      throw clientError
+    }
+
+    clientId = clientData.id
   }
 
-  // 2. Создаём устройство клиента
-  const { data: deviceData, error: deviceError } = await supabase
-    .from('devices')
-    .insert({
-      client_id: clientData.id,
-      brand: orderData.brand || 'Не указано',
-      model: orderData.device,
-      serial_number: orderData.serialNumber || null,
-    })
-    .select()
-    .single()
+  // 2. Устройство: передан deviceId — используем существующее, иначе создаём.
+  let deviceId = orderData.deviceId ?? null
 
-  if (deviceError) {
-    throw deviceError
+  if (!deviceId) {
+    const { data: deviceData, error: deviceError } = await supabase
+      .from('devices')
+      .insert({
+        client_id: clientId,
+        brand: orderData.brand || 'Не указано',
+        model: orderData.device,
+        serial_number: orderData.serialNumber || null,
+      })
+      .select()
+      .single()
+
+    if (deviceError) {
+      throw deviceError
+    }
+
+    deviceId = deviceData.id
   }
 
   // 3. Создаём заказ
@@ -477,8 +492,8 @@ export async function createOrder(orderData) {
     .from('orders')
     .insert({
       order_number: orderData.orderNumber,
-      client_id: clientData.id,
-      device_id: deviceData.id,
+      client_id: clientId,
+      device_id: deviceId,
       // для совместимости дублируем текстовые поля
       client: orderData.client,
       device: orderData.device,
@@ -494,6 +509,10 @@ export async function createOrder(orderData) {
       intake_photos: Array.isArray(orderData.intakePhotos)
         ? orderData.intakePhotos
         : [],
+      // Рабочий процесс (ШАГ 3.6): мастер, тип ремонта, срок.
+      master_id: orderData.masterId || null,
+      repair_type: orderData.repairType || null,
+      deadline_at: orderData.deadlineAt || null,
     })
     .select()
     .single()
@@ -508,6 +527,7 @@ export async function createOrder(orderData) {
     status: 'created',
     title: 'Заказ создан',
     comment: orderData.defect ? `Заявленная неисправность: ${orderData.defect}` : null,
+    createdBy: orderData.masterId ?? null,
   })
 
   return createdOrder

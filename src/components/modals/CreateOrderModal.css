@@ -93,6 +93,61 @@
   margin-top: 20px;
 }
 
+.create-order-modal__section-title {
+  margin: 18px 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.create-order-modal__section-title:first-of-type {
+  margin-top: 0;
+}
+
+.create-order-modal__mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.create-order-modal__mode-button {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.create-order-modal__mode-button--active {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-card));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.create-order-modal__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .create-order-modal__row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .create-order-modal__button--secondary {
   background: var(--color-surface);
   border-color: var(--color-border);
