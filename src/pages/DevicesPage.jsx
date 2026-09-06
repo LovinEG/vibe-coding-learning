@@ -1,15 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import DeviceModal from '../components/modals/DeviceModal'
 import Button from '../components/ui/Button'
-import { deleteDevice, getDevices } from '../data/devices'
+import {
+  deleteDevice,
+  exportDevicesToCsv,
+  getDevices,
+} from '../data/devices'
 import { formatDate } from '../lib/format'
 import { usePermission } from '../lib/usePermission'
+import './Page.css'
 
 function DevicesPage() {
+  const navigate = useNavigate()
+
   const [devices, setDevices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [modal, setModal] = useState({ open: false, device: null })
   const [deletingId, setDeletingId] = useState(null)
 
@@ -21,15 +30,23 @@ function DevicesPage() {
   const canManageClients = usePermission('clients.manage')
   const canManage = canCreateOrders || canManageClients
 
+  // Дебаунс поиска: серверный запрос не дёргается на каждый символ.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350)
+
+    return () => clearTimeout(timer)
+  }, [search])
+
   useEffect(() => {
     let cancelled = false
 
     async function loadDevices() {
       try {
-        const result = await getDevices()
+        const result = await getDevices({ search: debouncedSearch })
 
         if (!cancelled) {
           setDevices(result)
+          setError(null)
         }
       } catch (err) {
         if (!cancelled) {
@@ -50,14 +67,10 @@ function DevicesPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [debouncedSearch])
 
   function openCreate() {
     setModal({ open: true, device: null })
-  }
-
-  function openEdit(device) {
-    setModal({ open: true, device })
   }
 
   function closeModal() {
@@ -67,7 +80,7 @@ function DevicesPage() {
   async function refreshDevices() {
     try {
       setError(null)
-      setDevices(await getDevices())
+      setDevices(await getDevices({ search: debouncedSearch }))
     } catch (err) {
       console.error('Не удалось обновить список устройств:', err)
       setError('Не удалось обновить список устройств.')
@@ -98,77 +111,117 @@ function DevicesPage() {
     }
   }
 
-  const normalizedSearch = search.trim().toLowerCase()
-
-  const filteredDevices = useMemo(
-    () =>
-      devices.filter(
-        (device) =>
-          !normalizedSearch ||
-          device.model.toLowerCase().includes(normalizedSearch) ||
-          device.brand.toLowerCase().includes(normalizedSearch) ||
-          (device.serialNumber ?? '')
-            .toLowerCase()
-            .includes(normalizedSearch) ||
-          (device.clientName ?? '').toLowerCase().includes(normalizedSearch) ||
-          (device.clientPhone ?? '').toLowerCase().includes(normalizedSearch),
-      ),
-    [devices, normalizedSearch],
-  )
-
   return (
     <div className="page devices-page">
       <header className="devices-page__head">
         <h1 className="devices-page__title">Устройства</h1>
-        {canManage ? (
-          <Button type="button" onClick={openCreate}>
-            + Добавить устройство
+        <div className="devices-page__actions">
+          <Button
+            type="button"
+            className="devices-page__export-button"
+            onClick={() => exportDevicesToCsv(devices)}
+            disabled={devices.length === 0}
+          >
+            📥 Экспорт в CSV
           </Button>
-        ) : null}
+          {canManage ? (
+            <Button type="button" onClick={openCreate}>
+              + Добавить устройство
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       <input
         className="devices-page__search"
         type="search"
-        placeholder="Поиск по модели, бренду, серийному номеру или клиенту..."
+        placeholder="Поиск по марке, модели, IMEI или серийному номеру..."
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
 
       {loading ? (
-        <p>Загрузка...</p>
+        <p className="devices-page__empty">Загрузка...</p>
       ) : error ? (
         <p className="devices-page__error" role="alert">
           {error}
         </p>
-      ) : filteredDevices.length === 0 ? (
-        <p className="devices-page__empty">Устройства не найдены</p>
+      ) : devices.length === 0 ? (
+        <div className="devices-page__empty-state">
+          <span className="devices-page__empty-icon" aria-hidden="true">
+            📱
+          </span>
+          <p className="devices-page__empty-title">
+            {debouncedSearch
+              ? 'Устройства не найдены'
+              : 'Пока нет ни одного устройства'}
+          </p>
+          <p className="devices-page__empty-hint">
+            Добавьте устройство, чтобы привязывать к нему ремонты
+          </p>
+          {canManage && !debouncedSearch ? (
+            <Button type="button" onClick={openCreate}>
+              + Добавить устройство
+            </Button>
+          ) : null}
+        </div>
       ) : (
         <div className="devices-page__table">
           <div className="devices-page__table-header">
-            <span>Тип / Бренд</span>
-            <span>Модель</span>
-            <span>Серийный номер / IMEI</span>
+            <span>Устройство</span>
+            <span>IMEI / SN</span>
             <span>Владелец</span>
+            <span>Заказов</span>
             <span>Дата добавления</span>
             {canManage ? <span>Действия</span> : null}
           </div>
           <ul className="devices-page__list">
-            {filteredDevices.map((device) => (
-              <li key={device.id} className="devices-page__row">
+            {devices.map((device) => (
+              <li
+                key={device.id}
+                className="devices-page__row devices-page__row--clickable"
+                onClick={() => navigate(`/devices/${device.id}`)}
+              >
                 <span className="devices-page__type">
                   <em>{device.deviceType ?? 'Прочее'}</em>
-                  {device.brand}
+                  {device.brand} {device.model}
                 </span>
-                <span>{device.model}</span>
                 <span className="devices-page__serial">
-                  {device.serialNumber || '—'}
+                  {device.imei ? <span>IMEI: {device.imei}</span> : null}
+                  {device.serialNumber ? <span>SN: {device.serialNumber}</span> : null}
+                  {!device.imei && !device.serialNumber ? '—' : null}
                 </span>
                 <span className="devices-page__owner">
-                  {device.clientName ?? '—'}
+                  {device.clientId ? (
+                    <span
+                      className="devices-page__owner-link"
+                      role="link"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        navigate(`/clients/${device.clientId}`)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.stopPropagation()
+                          navigate(`/clients/${device.clientId}`)
+                        }
+                      }}
+                    >
+                      {device.clientName ?? '—'}
+                    </span>
+                  ) : (
+                    device.clientName ?? '—'
+                  )}
                   {device.clientPhone ? (
                     <small>{device.clientPhone}</small>
                   ) : null}
+                </span>
+                <span className="devices-page__repairs-count">
+                  {device.ordersCount} /{' '}
+                  <span className="devices-page__repairs-active">
+                    {device.activeOrdersCount}
+                  </span>
                 </span>
                 <span className="devices-page__date">
                   {formatDate(device.createdAt)}
@@ -178,7 +231,10 @@ function DevicesPage() {
                     <Button
                       type="button"
                       className="devices-page__action-button"
-                      onClick={() => openEdit(device)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setModal({ open: true, device })
+                      }}
                       disabled={deletingId === device.id}
                     >
                       Изменить
@@ -186,7 +242,10 @@ function DevicesPage() {
                     <Button
                       type="button"
                       className="devices-page__action-button devices-page__action-button--danger"
-                      onClick={() => handleDelete(device)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        handleDelete(device)
+                      }}
                       disabled={deletingId === device.id}
                     >
                       {deletingId === device.id ? 'Удаление...' : 'Удалить'}

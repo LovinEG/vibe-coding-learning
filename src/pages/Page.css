@@ -4846,3 +4846,377 @@
   font-size: 13px;
 }
 
+
+/* ---------- DevicesPage (ШАГ 3.2): экспорт, новый грид, empty state ---------- */
+
+.devices-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.devices-page__export-button {
+  background: var(--color-card);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.devices-page__export-button:hover:not(:disabled) {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+}
+
+/* Новый грид: Устройство / IMEI-SN / Владелец / Заказов / Дата / Действия */
+.devices-page__table-header,
+.devices-page__row {
+  grid-template-columns: 1.4fr 1.2fr 1.1fr 0.7fr 0.9fr auto;
+  min-width: 900px;
+}
+
+.devices-page__row--clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.devices-page__row--clickable:hover {
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+}
+
+.devices-page__serial {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.devices-page__repairs-count {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.devices-page__repairs-active {
+  color: var(--color-accent);
+}
+
+.devices-page__owner-link {
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.devices-page__owner-link:hover {
+  text-decoration: underline;
+}
+
+.devices-page__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 40px 16px;
+  text-align: center;
+}
+
+.devices-page__empty-icon {
+  font-size: 32px;
+}
+
+.devices-page__empty-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.devices-page__empty-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+
+/* ---------- DeviceDetailPage (карточка устройства, ШАГ 3.2) ---------- */
+
+.device-detail-page__breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.device-detail-page__breadcrumb-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.device-detail-page__breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.device-detail-page__breadcrumb-sep {
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__breadcrumb-current {
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .device-detail-page__metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+.device-detail-page__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+.device-detail-page__metric-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__metric-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.device-detail-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 16px;
+  margin-top: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .device-detail-page__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.device-detail-page__panel-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.device-detail-page__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.device-detail-page__panel-head .device-detail-page__panel-title {
+  margin-bottom: 0;
+}
+
+.device-detail-page__device-title {
+  margin: 12px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.device-detail-page__specs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 16px;
+  margin: 12px 0 0;
+}
+
+@media (max-width: 480px) {
+  .device-detail-page__specs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.device-detail-page__specs dt {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__specs dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.device-detail-page__mono {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 13px;
+}
+
+.device-detail-page__owner-title {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.device-detail-page__owner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.device-detail-page__owner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.device-detail-page__owner-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.device-detail-page__owner-phone {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__small-button {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+
+.device-detail-page__table {
+  overflow-x: auto;
+}
+
+.device-detail-page__orders-header,
+.device-detail-page__orders-row {
+  display: grid;
+  grid-template-columns: 0.7fr 1.4fr 0.9fr 1fr 0.8fr 0.8fr;
+  gap: 10px;
+  align-items: center;
+  min-width: 720px;
+}
+
+.device-detail-page__orders-header span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__orders-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.device-detail-page__orders-row {
+  padding: 9px 0;
+  border-top: 1px solid var(--color-border);
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.device-detail-page__orders-row:hover {
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+}
+
+.device-detail-page__orders-number {
+  font-weight: 600;
+}
+
+.device-detail-page__orders-price {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.device-detail-page__orders-date {
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__order-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.device-detail-page__order-badge--new {
+  background: var(--color-info-bg);
+  border-color: color-mix(in srgb, var(--color-info) 30%, transparent);
+  color: var(--color-info);
+}
+
+.device-detail-page__order-badge--in-work {
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: var(--color-success);
+}
+
+.device-detail-page__order-badge--waiting {
+  background: #fef3c7;
+  border-color: color-mix(in srgb, #d97706 30%, transparent);
+  color: #b45309;
+}
+
+.device-detail-page__order-badge--ready {
+  background: var(--color-accent-secondary-bg);
+  border-color: color-mix(in srgb, var(--color-accent-secondary) 30%, transparent);
+  color: var(--color-accent-secondary);
+}
+
+.device-detail-page__order-badge--issued {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.device-detail-page__alert {
+  margin: 12px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #d64545 40%, var(--color-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, #d64545 8%, var(--color-surface));
+  color: #d64545;
+  font-size: 13px;
+}
+

@@ -11,6 +11,7 @@ const emptyForm = {
   brand: '',
   model: '',
   serialNumber: '',
+  imei: '',
   deviceType: 'Смартфон',
 }
 
@@ -21,6 +22,7 @@ function createInitialForm(device) {
         brand: device.brand ?? '',
         model: device.model ?? '',
         serialNumber: device.serialNumber ?? '',
+        imei: device.imei ?? '',
         deviceType: device.deviceType || 'Смартфон',
       }
     : emptyForm
@@ -139,6 +141,7 @@ function DeviceModal({ open, device, onClose, onSaved }) {
         brand: form.brand.trim(),
         model: form.model.trim(),
         serialNumber: form.serialNumber.trim(),
+        imei: form.imei.trim(),
         deviceType: form.deviceType,
       }
 
@@ -260,7 +263,18 @@ function DeviceModal({ open, device, onClose, onSaved }) {
           </label>
 
           <label className="device-modal__field">
-            <span className="device-modal__label">Серийный номер / IMEI</span>
+            <span className="device-modal__label">IMEI</span>
+            <input
+              className="device-modal__input device-modal__input--mono"
+              name="imei"
+              placeholder="358240051111110"
+              value={form.imei}
+              onChange={handleChange}
+            />
+          </label>
+
+          <label className="device-modal__field">
+            <span className="device-modal__label">Серийный номер</span>
             <input
               className="device-modal__input device-modal__input--mono"
               name="serialNumber"

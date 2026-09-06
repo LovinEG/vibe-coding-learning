@@ -13,6 +13,7 @@ import StockBatchesPage from './pages/StockBatchesPage.jsx'
 import ConsumablesPage from './pages/ConsumablesPage.jsx'
 import StockMovementsPage from './pages/StockMovementsPage.jsx'
 import DevicesPage from './pages/DevicesPage.jsx'
+import DeviceDetailPage from './pages/DeviceDetailPage.jsx'
 import TasksPage from './pages/TasksPage.jsx'
 import PaymentsPage from './pages/PaymentsPage.jsx'
 import OperationsPage from './pages/OperationsPage.jsx'
@@ -42,6 +43,7 @@ function App() {
             <Route path="clients" element={<ClientsPage />} />
             <Route path="clients/:id" element={<ClientDetailPage />} />
             <Route path="devices" element={<DevicesPage />} />
+            <Route path="devices/:id" element={<DeviceDetailPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="operations" element={<OperationsPage />} />
             <Route
