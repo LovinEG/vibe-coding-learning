@@ -10,9 +10,10 @@ const DEVICE_SELECT =
 // с мастером (orders.master_id добавлен миграцией ШАГ 3.4).
 // Связь по заказам задана явно через FK orders.device_id —
 // без этого PostgREST может упасть на неоднозначном внешнем ключе.
+// ВАЖНО: в таблице orders нет created_at — дата заказа хранится в accepted_at.
 const DEVICE_DETAILS_SELECT =
   '*, clients(id, name, phone), ' +
-  'orders!device_id(id, status, defect, price, created_at, master:profiles!master_id(full_name))'
+  'orders!device_id(id, status, defect, price, accepted_at, master:profiles!master_id(full_name))'
 
 // Незавершённые статусы — для подсчёта активных ремонтов устройства.
 const ACTIVE_ORDER_STATUSES = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
@@ -97,13 +98,16 @@ export async function getDeviceById(deviceId) {
     throw error
   }
 
+  // Сортировка заказов в JS по существующему полю даты accepted_at
+  // (в таблице orders нет created_at; встраиваемый .order() по embed-связке
+  // здесь не нужен — PostgREST может путать алиасы таблиц).
   const orders = (data.orders ?? [])
     .map((order) => ({
       id: order.id,
       status: order.status,
       defect: order.defect ?? null,
       price: Number(order.price) || 0,
-      createdAt: order.created_at,
+      createdAt: order.accepted_at,
       masterName: order.master?.full_name ?? null,
     }))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
