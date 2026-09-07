@@ -105,9 +105,8 @@ export async function getDashboardSummary() {
   const shiftRevenue = shiftPayments.reduce((sum, payment) => sum + payment.amount, 0)
   const cashTotal = cashRegisters.reduce((sum, register) => sum + register.balance, 0)
 
-  // Статус смены за сегодня. Даты сравниваем по UTC-строке YYYY-MM-DD
-  // (не по локальному startOfDay), чтобы выборка совпадала с тем,
-  // как даты хранятся и отдаются Supabase (ISO/UTC).
+  // Статус смены: по самой свежей служебной операции за сегодня.
+  // Даты сравниваем по UTC-строке YYYY-MM-DD (не по локальному startOfDay).
   const todayStr = new Date().toISOString().slice(0, 10)
   const todayOperations = cashOperations
     .filter((operation) => {
@@ -116,16 +115,25 @@ export async function getDashboardSummary() {
     })
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
 
-  console.log('Today operations fetched:', todayOperations)
+  // Служебные операции смен, свежие первыми.
+  const shiftOperations = todayOperations
+    .filter((operation) => {
+      const category = (operation.category || '').toLowerCase()
+      return (
+        category === SHIFT_OPEN_CATEGORY.toLowerCase() ||
+        category === SHIFT_CLOSE_CATEGORY.toLowerCase()
+      )
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 
-  const hasOpen = todayOperations.some(
-    (operation) =>
-      operation.category?.toLowerCase() === SHIFT_OPEN_CATEGORY.toLowerCase(),
-  )
-  const hasClose = todayOperations.some(
-    (operation) =>
-      operation.category?.toLowerCase() === SHIFT_CLOSE_CATEGORY.toLowerCase(),
-  )
+  const lastShiftOp = shiftOperations[0]
+
+  // Последняя операция — «Открытие смены» → открыта,
+  // «Закрытие смены» → закрыта; без маркеров — fallback: любые операции
+  // за сегодня означают, что сервис уже работает (смена открыта).
+  const isShiftOpen = lastShiftOp
+    ? lastShiftOp.category.toLowerCase() === SHIFT_OPEN_CATEGORY.toLowerCase()
+    : todayOperations.length > 0
 
   // Явная запись открытия (для времени и сотрудника); при fallback — первая операция.
   const shiftOpenOperation =
@@ -134,11 +142,6 @@ export async function getDashboardSummary() {
         operation.category?.toLowerCase() === SHIFT_OPEN_CATEGORY.toLowerCase(),
     ) ?? todayOperations[0] ??
     null
-
-  // Закрыта, только если есть маркер «Закрытие смены».
-  const isShiftOpen = !hasClose && (hasOpen || todayOperations.length > 0)
-
-  console.log('IsShiftOpen calculated:', isShiftOpen)
 
   return {
     generatedAt: now.toISOString(),
