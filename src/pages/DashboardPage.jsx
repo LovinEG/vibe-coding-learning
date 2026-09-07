@@ -12,6 +12,7 @@ import { useAuth } from '../lib/useAuth'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import CreateOrderModal from '../components/modals/CreateOrderModal'
+import ShiftModal from '../components/modals/ShiftModal'
 import './Page.css'
 
 const STATUS_BADGES = {
@@ -48,6 +49,8 @@ function DashboardPage() {
   const [orderFilter, setOrderFilter] = useState('all')
   const [orderSearch, setOrderSearch] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  // Управление сменой прямо на дашборде: { open, mode } — mode 'open'|'close'.
+  const [shiftModal, setShiftModal] = useState({ open: false, mode: 'open' })
 
   const navigate = useNavigate()
   const { profile, user } = useAuth()
@@ -164,6 +167,19 @@ function DashboardPage() {
     navigate(path)
   }
 
+  // Обновление состояния дашборда на лету после открытия/закрытия смены.
+  function refreshSummary() {
+    return getDashboardSummary()
+      .then(setSummary)
+      .catch((err) => {
+        console.error('Не удалось обновить данные дашборда:', err)
+      })
+  }
+
+  function openShiftModal(mode) {
+    setShiftModal({ open: true, mode })
+  }
+
   const metricCards = [
     {
       label: 'В работе',
@@ -226,12 +242,29 @@ function DashboardPage() {
             {shift.isOpen ? (
               <>
                 <span className="dashboard-page__shift-dot" aria-hidden="true" />
-                Смена открыта · {formatDateTime(shift.openedAt)}
+                Статус: открыта · {formatDateTime(shift.openedAt)}
                 {shift.operator ? ` · ${shift.operator}` : ''}
               </>
             ) : (
-              'Смена не открыта'
+              <>
+                Статус: закрыта
+                <button
+                  type="button"
+                  className="dashboard-page__shift-open-button"
+                  onClick={() => openShiftModal('open')}
+                >
+                  🔓 Открыть смену сейчас
+                </button>
+              </>
             )}
+            {shift.isOpen ? (
+              <Button
+                className="dashboard-page__shift-action"
+                onClick={() => openShiftModal('close')}
+              >
+                🔒 Закрыть смену
+              </Button>
+            ) : null}
           </p>
         </div>
 
@@ -249,12 +282,21 @@ function DashboardPage() {
           >
             Принять устройство
           </Button>
-          <Button
-            className="dashboard-page__action--secondary"
-            onClick={() => go('/cash-registers')}
-          >
-            Открыть/Закрыть кассу
-          </Button>
+          {shift.isOpen ? (
+            <Button
+              className="dashboard-page__action--secondary"
+              onClick={() => openShiftModal('close')}
+            >
+              🔒 Закрыть смену
+            </Button>
+          ) : (
+            <Button
+              className="dashboard-page__action--secondary"
+              onClick={() => openShiftModal('open')}
+            >
+              🔓 Открыть смену
+            </Button>
+          )}
         </div>
       </header>
 
@@ -499,6 +541,14 @@ function DashboardPage() {
             .then(setSummary)
             .catch((err) => console.error('Не удалось обновить дашборд:', err))
         }}
+      />
+
+      <ShiftModal
+        key={shiftModal.open ? shiftModal.mode : 'closed'}
+        open={shiftModal.open}
+        mode={shiftModal.mode}
+        onClose={() => setShiftModal({ open: false, mode: 'open' })}
+        onSaved={refreshSummary}
       />
     </div>
   )

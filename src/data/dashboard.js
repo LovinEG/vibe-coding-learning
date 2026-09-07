@@ -5,7 +5,11 @@ import { getParts } from './inventory'
 import { getCashRegisters } from './cashRegisters'
 import { getPayments } from './payments'
 import { getTasks } from './tasks'
-import { getCashOperations } from './cashOperations'
+import {
+  getCashOperations,
+  SHIFT_CLOSE_CATEGORY,
+  SHIFT_OPEN_CATEGORY,
+} from './cashOperations'
 import { getStockBatches } from './stockBatches'
 
 // Срок ремонта по умолчанию: в схеме orders нет поля deadline, поэтому
@@ -101,11 +105,20 @@ export async function getDashboardSummary() {
   const shiftRevenue = shiftPayments.reduce((sum, payment) => sum + payment.amount, 0)
   const cashTotal = cashRegisters.reduce((sum, register) => sum + register.balance, 0)
 
-  // Статус смены: первая кассовая операция за сегодня.
+  // Статус смены: определяем по маркерным категориям за сегодня.
+  // Открыта — есть «Открытие смены» и нет «Закрытия смены»;
+  // без маркеров сохраняем старую эвристику (первая операция за сегодня).
   const todayOperations = cashOperations
     .filter((operation) => isSameDay(new Date(operation.createdAt), now))
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-  const shiftOpenOperation = todayOperations[0] ?? null
+  const shiftCloseOperation = todayOperations.find(
+    (operation) => operation.category === SHIFT_CLOSE_CATEGORY,
+  )
+  const shiftOpenOperation =
+    todayOperations.find(
+      (operation) => operation.category === SHIFT_OPEN_CATEGORY,
+    ) ?? todayOperations[0] ??
+    null
 
   return {
     generatedAt: now.toISOString(),
@@ -120,7 +133,7 @@ export async function getDashboardSummary() {
       cashTotal,
     },
     shift: {
-      isOpen: shiftOpenOperation !== null,
+      isOpen: shiftOpenOperation !== null && shiftCloseOperation === null,
       openedAt: shiftOpenOperation?.createdAt ?? null,
       operator: shiftOpenOperation?.createdByName ?? null,
     },

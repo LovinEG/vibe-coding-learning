@@ -2831,6 +2831,29 @@
   flex-shrink: 0;
 }
 
+/* Кнопка «Открыть смену сейчас» внутри алерта смены */
+.dashboard-page__shift-open-button {
+  padding: 3px 10px;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dashboard-page__shift-open-button:hover {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.dashboard-page__shift-action {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
 .dashboard-page__actions {
   display: flex;
   flex-wrap: wrap;

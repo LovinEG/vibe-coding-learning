@@ -64,3 +64,54 @@ export async function addCashOperation({
 
   return mapOperation(data)
 }
+
+// ---------------- Смены ----------------
+// Смены фиксируются кассовыми операциями с особыми категориями:
+// «Открытие смены» (income — стартовый остаток) и «Закрытие смены»
+// (expense, amount = 0 — маркер закрытия, итоговый остаток пишем в комментарий).
+// Дашборд определяет статус смены по этим категориям за сегодня.
+export const SHIFT_OPEN_CATEGORY = 'Открытие смены'
+export const SHIFT_CLOSE_CATEGORY = 'Закрытие смены'
+export const SHIFT_WITHDRAWAL_CATEGORY = 'Инкассация / выемка'
+
+// Открытие смены: стартовый остаток наличных проводится приходом по кассе.
+export async function openShift({ cashRegisterId, startCash, comment }) {
+  return addCashOperation({
+    cashRegisterId,
+    type: 'income',
+    category: SHIFT_OPEN_CATEGORY,
+    amount: Number(startCash) || 0,
+    comment: comment || null,
+  })
+}
+
+// Закрытие смены: при инкассации/выемке проводится расход,
+// затем — нулевой маркер закрытия с итоговым остатком в комментарии.
+export async function closeShift({
+  cashRegisterId,
+  closingBalance,
+  withdrawal,
+  comment,
+}) {
+  const withdrawalAmount = Number(withdrawal) || 0
+
+  if (withdrawalAmount > 0) {
+    await addCashOperation({
+      cashRegisterId,
+      type: 'expense',
+      category: SHIFT_WITHDRAWAL_CATEGORY,
+      amount: withdrawalAmount,
+      comment: comment || null,
+    })
+  }
+
+  return addCashOperation({
+    cashRegisterId,
+    type: 'expense',
+    category: SHIFT_CLOSE_CATEGORY,
+    amount: 0,
+    comment:
+      `Итоговый остаток: ${Number(closingBalance) || 0}` +
+      (comment ? ` · ${comment}` : ''),
+  })
+}
