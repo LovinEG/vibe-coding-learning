@@ -105,20 +105,35 @@ export async function getDashboardSummary() {
   const shiftRevenue = shiftPayments.reduce((sum, payment) => sum + payment.amount, 0)
   const cashTotal = cashRegisters.reduce((sum, register) => sum + register.balance, 0)
 
-  // Статус смены: определяем по маркерным категориям за сегодня.
-  // Открыта — есть «Открытие смены» и нет «Закрытия смены»;
-  // без маркеров сохраняем старую эвристику (первая операция за сегодня).
+  // Статус смены за сегодня (учитываем часовой пояс: created_at >= startOfDay).
+  // Маркерные категории сравниваем регистронезависимо, чтобы опечатки в БД
+  // не ломали статус. Fallback: если за сегодня уже есть любые финансовые
+  // операции (приходы/расходы), но явной записи «Открытие смены» нет —
+  // считаем смену автоматически открытой, так как сервис уже ведёт работу.
+  const todayStart = startOfDay(now)
   const todayOperations = cashOperations
-    .filter((operation) => isSameDay(new Date(operation.createdAt), now))
+    .filter((operation) => new Date(operation.createdAt) >= todayStart)
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-  const shiftCloseOperation = todayOperations.find(
-    (operation) => operation.category === SHIFT_CLOSE_CATEGORY,
+
+  const hasOpen = todayOperations.some(
+    (operation) =>
+      operation.category?.toLowerCase() === SHIFT_OPEN_CATEGORY.toLowerCase(),
   )
+  const hasClose = todayOperations.some(
+    (operation) =>
+      operation.category?.toLowerCase() === SHIFT_CLOSE_CATEGORY.toLowerCase(),
+  )
+
+  // Явная запись открытия (для времени и сотрудника); при fallback — первая операция.
   const shiftOpenOperation =
     todayOperations.find(
-      (operation) => operation.category === SHIFT_OPEN_CATEGORY,
+      (operation) =>
+        operation.category?.toLowerCase() === SHIFT_OPEN_CATEGORY.toLowerCase(),
     ) ?? todayOperations[0] ??
     null
+
+  // Закрыта, только если есть маркер «Закрытие смены».
+  const isShiftOpen = !hasClose && (hasOpen || todayOperations.length > 0)
 
   return {
     generatedAt: now.toISOString(),
@@ -133,7 +148,7 @@ export async function getDashboardSummary() {
       cashTotal,
     },
     shift: {
-      isOpen: shiftOpenOperation !== null && shiftCloseOperation === null,
+      isOpen: isShiftOpen,
       openedAt: shiftOpenOperation?.createdAt ?? null,
       operator: shiftOpenOperation?.createdByName ?? null,
     },
