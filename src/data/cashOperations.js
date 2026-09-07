@@ -86,50 +86,53 @@ export const SHIFT_SHORTAGE_CATEGORY = 'Недостача при открыти
 export async function openShift({ cashRegisterId, startCash, comment }) {
   const startCashAmount = Number(startCash) || 0
 
-  // Текущий учётный баланс кассы.
-  const { data: register, error: registerError } = await supabase
-    .from('cash_registers')
-    .select('balance')
-    .eq('id', cashRegisterId)
-    .single()
+  try {
+    // Текущий учётный баланс кассы.
+    const { data: register, error: registerError } = await supabase
+      .from('cash_registers')
+      .select('balance')
+      .eq('id', cashRegisterId)
+      .single()
 
-  if (registerError) {
-    console.error(
-      `Supabase: не удалось получить баланс кассы (id=${cashRegisterId}):`,
-      registerError,
-    )
-    throw registerError
-  }
+    if (registerError) {
+      throw registerError
+    }
 
-  // Служебный маркер открытия смены: баланс не меняет.
-  const marker = await addCashOperation({
-    cashRegisterId,
-    type: 'income',
-    category: SHIFT_OPEN_CATEGORY,
-    amount: 0,
-    comment:
-      `Стартовый остаток: ${startCashAmount}` +
-      (comment ? ` · ${comment}` : ''),
-  })
-
-  // Корректировка учётного баланса на разницу (излишек/недостача).
-  const currentBalance = Number(register?.balance) || 0
-  const diff = startCashAmount - currentBalance
-
-  if (diff !== 0) {
-    await addCashOperation({
+    // Служебный маркер открытия смены: баланс не меняет.
+    const marker = await addCashOperation({
       cashRegisterId,
-      type: diff > 0 ? 'income' : 'expense',
-      category:
-        diff > 0
-          ? SHIFT_SURPLUS_CATEGORY
-          : SHIFT_SHORTAGE_CATEGORY,
-      amount: Math.abs(diff),
-      comment: `Открытие смены: учётный ${currentBalance}, фактический ${startCashAmount}`,
+      type: 'income',
+      category: SHIFT_OPEN_CATEGORY,
+      amount: 0,
+      comment:
+        `Стартовый остаток: ${startCashAmount}` +
+        (comment ? ` · ${comment}` : ''),
     })
-  }
 
-  return marker
+    // Корректировка учётного баланса на разницу (излишек/недостача).
+    const currentBalance = Number(register?.balance) || 0
+    const diff = startCashAmount - currentBalance
+
+    if (diff !== 0) {
+      await addCashOperation({
+        cashRegisterId,
+        type: diff > 0 ? 'income' : 'expense',
+        category:
+          diff > 0
+            ? SHIFT_SURPLUS_CATEGORY
+            : SHIFT_SHORTAGE_CATEGORY,
+        amount: Math.abs(diff),
+        comment: `Открытие смены: учётный ${currentBalance}, фактический ${startCashAmount}`,
+      })
+    }
+
+    return marker
+  } catch (error) {
+    // Ошибки базы не проглатываются: лог + проброс наверх,
+    // чтобы ShiftModal показал пользователю уведомление об ошибке.
+    console.error('Failed to open shift:', error)
+    throw error
+  }
 }
 
 // Закрытие смены: при инкассации/выемке проводится расход,
