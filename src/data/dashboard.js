@@ -105,15 +105,18 @@ export async function getDashboardSummary() {
   const shiftRevenue = shiftPayments.reduce((sum, payment) => sum + payment.amount, 0)
   const cashTotal = cashRegisters.reduce((sum, register) => sum + register.balance, 0)
 
-  // Статус смены за сегодня (учитываем часовой пояс: created_at >= startOfDay).
-  // Маркерные категории сравниваем регистронезависимо, чтобы опечатки в БД
-  // не ломали статус. Fallback: если за сегодня уже есть любые финансовые
-  // операции (приходы/расходы), но явной записи «Открытие смены» нет —
-  // считаем смену автоматически открытой, так как сервис уже ведёт работу.
-  const todayStart = startOfDay(now)
+  // Статус смены за сегодня. Даты сравниваем по UTC-строке YYYY-MM-DD
+  // (не по локальному startOfDay), чтобы выборка совпадала с тем,
+  // как даты хранятся и отдаются Supabase (ISO/UTC).
+  const todayStr = new Date().toISOString().slice(0, 10)
   const todayOperations = cashOperations
-    .filter((operation) => new Date(operation.createdAt) >= todayStart)
+    .filter((operation) => {
+      const opDateStr = new Date(operation.createdAt).toISOString().slice(0, 10)
+      return opDateStr === todayStr
+    })
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+
+  console.log('Today operations fetched:', todayOperations)
 
   const hasOpen = todayOperations.some(
     (operation) =>
@@ -134,6 +137,8 @@ export async function getDashboardSummary() {
 
   // Закрыта, только если есть маркер «Закрытие смены».
   const isShiftOpen = !hasClose && (hasOpen || todayOperations.length > 0)
+
+  console.log('IsShiftOpen calculated:', isShiftOpen)
 
   return {
     generatedAt: now.toISOString(),

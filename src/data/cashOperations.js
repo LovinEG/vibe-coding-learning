@@ -109,6 +109,8 @@ export async function openShift({ cashRegisterId, startCash, comment }) {
         (comment ? ` · ${comment}` : ''),
     })
 
+    console.log('OpenShift result:', marker)
+
     // Корректировка учётного баланса на разницу (излишек/недостача).
     const currentBalance = Number(register?.balance) || 0
     const diff = startCashAmount - currentBalance
