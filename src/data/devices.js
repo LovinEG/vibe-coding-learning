@@ -3,13 +3,16 @@ import { supabase } from '../lib/supabase'
 // Джойн владельца: в таблице clients поля называются name/phone
 // (full_name — это profiles, к устройствам отношения не имеет).
 // orders(status) — для агрегатов: всего ремонтов и активных в работе.
-const DEVICE_SELECT = '*, clients(id, name, phone), orders(status)'
+const DEVICE_SELECT =
+  '*, clients(id, name, phone), orders!device_id(status)'
 
 // Детальная выборка: устройство + владелец + вся история ремонтов
 // с мастером (orders.master_id добавлен миграцией ШАГ 3.4).
+// Связь по заказам задана явно через FK orders.device_id —
+// без этого PostgREST может упасть на неоднозначном внешнем ключе.
 const DEVICE_DETAILS_SELECT =
   '*, clients(id, name, phone), ' +
-  'orders(id, status, defect, price, created_at, master:profiles!master_id(full_name))'
+  'orders!device_id(id, status, defect, price, created_at, master:profiles!master_id(full_name))'
 
 // Незавершённые статусы — для подсчёта активных ремонтов устройства.
 const ACTIVE_ORDER_STATUSES = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
@@ -72,6 +75,12 @@ export async function getDevices(filters = {}) {
 // Детальная карточка устройства: данные + владелец + вся история ремонтов
 // (статус, неисправность, стоимость, дата, мастер). Заказы — свежие сверху.
 export async function getDeviceById(deviceId) {
+  if (!deviceId) {
+    console.error('getDeviceById: не передан id устройства из URL')
+    throw new Error('Не передан id устройства')
+  }
+
+  // Фильтр строго по первичному ключу: GET /devices?id=eq.<uuid>&select=...
   const { data, error } = await supabase
     .from('devices')
     .select(DEVICE_DETAILS_SELECT)
@@ -79,6 +88,12 @@ export async function getDeviceById(deviceId) {
     .single()
 
   if (error) {
+    // Причина «falling back» на экран ошибки в карточке — в консоли.
+    console.error(
+      `Supabase: не удалось загрузить устройство (id=${deviceId}):`,
+      error.message,
+      error,
+    )
     throw error
   }
 

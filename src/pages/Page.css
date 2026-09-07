@@ -4869,7 +4869,7 @@
 /* Новый грид: Устройство / IMEI-SN / Владелец / Заказов / Дата / Действия */
 .devices-page__table-header,
 .devices-page__row {
-  grid-template-columns: 1.4fr 1.2fr 1.1fr 0.7fr 0.9fr auto;
+  grid-template-columns: 1.5fr 1.5fr 1.5fr 100px 120px 160px;
   min-width: 900px;
 }
 
