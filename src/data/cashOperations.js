@@ -67,22 +67,69 @@ export async function addCashOperation({
 
 // ---------------- Смены ----------------
 // Смены фиксируются кассовыми операциями с особыми категориями:
-// «Открытие смены» (income — стартовый остаток) и «Закрытие смены»
-// (expense, amount = 0 — маркер закрытия, итоговый остаток пишем в комментарий).
-// Дашборд определяет статус смены по этим категориям за сегодня.
+// «Открытие смены» и «Закрытие смены» — служебные маркеры с amount = 0
+// (баланс кассы они не меняют), при расхождении создаётся корректирующая
+// запись излишка/недостачи. Дашборд определяет статус смены по категориям.
 export const SHIFT_OPEN_CATEGORY = 'Открытие смены'
 export const SHIFT_CLOSE_CATEGORY = 'Закрытие смены'
 export const SHIFT_WITHDRAWAL_CATEGORY = 'Инкассация / выемка'
+export const SHIFT_SURPLUS_CATEGORY = 'Излишек при открытии смены'
+export const SHIFT_SHORTAGE_CATEGORY = 'Недостача при открытии смены'
 
-// Открытие смены: стартовый остаток наличных проводится приходом по кассе.
+// Открытие смены. Введённая пользователем сумма — фактический остаток
+// наличных в кассе (стартовый баланс), а НЕ сумма прихода:
+// 1) сама запись «Открытие смены» фиксируется с amount: 0 — служебный
+//    маркер, деньги к кассе повторно не прибавляются;
+// 2) если фактический остаток отличается от учётного баланса кассы,
+//    создаётся отдельная корректирующая запись на разницу
+//    (излишек — income, недостача — expense), которая и меняет баланс.
 export async function openShift({ cashRegisterId, startCash, comment }) {
-  return addCashOperation({
+  const startCashAmount = Number(startCash) || 0
+
+  // Текущий учётный баланс кассы.
+  const { data: register, error: registerError } = await supabase
+    .from('cash_registers')
+    .select('balance')
+    .eq('id', cashRegisterId)
+    .single()
+
+  if (registerError) {
+    console.error(
+      `Supabase: не удалось получить баланс кассы (id=${cashRegisterId}):`,
+      registerError,
+    )
+    throw registerError
+  }
+
+  // Служебный маркер открытия смены: баланс не меняет.
+  const marker = await addCashOperation({
     cashRegisterId,
     type: 'income',
     category: SHIFT_OPEN_CATEGORY,
-    amount: Number(startCash) || 0,
-    comment: comment || null,
+    amount: 0,
+    comment:
+      `Стартовый остаток: ${startCashAmount}` +
+      (comment ? ` · ${comment}` : ''),
   })
+
+  // Корректировка учётного баланса на разницу (излишек/недостача).
+  const currentBalance = Number(register?.balance) || 0
+  const diff = startCashAmount - currentBalance
+
+  if (diff !== 0) {
+    await addCashOperation({
+      cashRegisterId,
+      type: diff > 0 ? 'income' : 'expense',
+      category:
+        diff > 0
+          ? SHIFT_SURPLUS_CATEGORY
+          : SHIFT_SHORTAGE_CATEGORY,
+      amount: Math.abs(diff),
+      comment: `Открытие смены: учётный ${currentBalance}, фактический ${startCashAmount}`,
+    })
+  }
+
+  return marker
 }
 
 // Закрытие смены: при инкассации/выемке проводится расход,

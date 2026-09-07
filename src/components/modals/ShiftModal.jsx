@@ -76,6 +76,12 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Текущий учётный баланс выбранной кассы (для отображения в форме).
+  const selectedRegister = cashRegisters.find(
+    (item) => item.id === form.cashRegisterId,
+  )
+  const selectedBalance = selectedRegister?.balance ?? null
+
   function validate() {
     if (!form.cashRegisterId) {
       return 'Выберите кассу'
@@ -229,7 +235,7 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
           ) : (
             <label className="shift-modal__field">
               <span className="shift-modal__label">
-                Стартовый остаток наличных в кассе *
+                Фактический остаток наличных при открытии *
               </span>
               <input
                 className="shift-modal__input"
@@ -243,6 +249,14 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
               />
             </label>
           )}
+
+          {!isClosing && selectedBalance !== null ? (
+            <p className="shift-modal__hint">
+              Текущий остаток в системе:{' '}
+              {formatCurrency(selectedBalance)}. При расхождении будет
+              создана корректирующая запись (излишек / недостача).
+            </p>
+          ) : null}
 
           <label className="shift-modal__field">
             <span className="shift-modal__label">
