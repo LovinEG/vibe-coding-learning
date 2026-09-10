@@ -12,6 +12,7 @@ import { getParts } from '../data/inventory'
 import { getServices } from '../data/services'
 import { getEmployees } from '../data/tasks'
 import EditOrderModal from '../components/modals/EditOrderModal'
+import CloseOrderModal from '../components/modals/CloseOrderModal'
 import { formatDate, formatDateTime, formatPrice } from '../lib/format'
 import { usePermission } from '../lib/usePermission'
 import { useAuth } from '../lib/useAuth'
@@ -92,6 +93,8 @@ function OrderDetailPage() {
   const [error, setError] = useState(null)
   const [lightboxUrl, setLightboxUrl] = useState(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  // Заглушка действия «Оплатить и закрыть» (только UI, без кассы и статуса).
+  const [payCloseModalOpen, setPayCloseModalOpen] = useState(false)
 
   // Редактор диагностики.
   const [diagnosticEditing, setDiagnosticEditing] = useState(false)
@@ -485,6 +488,14 @@ function OrderDetailPage() {
             onClick={() => setEditModalOpen(true)}
           >
             ✏️ Редактировать
+          </Button>
+        ) : null}
+
+        {/* «Оплатить и закрыть»: только для заказов, готовых к выдаче.
+            Пока это UI-заглушка — кассу не проводит и статус не меняет. */}
+        {order.status === 'Готово к выдаче' ? (
+          <Button onClick={() => setPayCloseModalOpen(true)}>
+            💰 Оплатить и закрыть
           </Button>
         ) : null}
       </div>
@@ -1114,6 +1125,10 @@ function OrderDetailPage() {
           onClose={() => setEditModalOpen(false)}
           onSaved={loadOrder}
         />
+      ) : null}
+
+      {payCloseModalOpen ? (
+        <CloseOrderModal onClose={() => setPayCloseModalOpen(false)} />
       ) : null}
 
       {/* Лайтбокс: предпросмотр фотографий */}
