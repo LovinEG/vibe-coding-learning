@@ -107,10 +107,47 @@ export async function getDashboardSummary() {
       order.closedAt && isSameDay(new Date(order.closedAt), now),
   ).length
 
-  const shiftPayments = incomePayments.filter((payment) =>
-    isSameDay(new Date(payment.createdAt), now),
+  // Выручка текущей смены — только реальные оплаты заказов: income-платежи
+  // с orderId. Интервал смены определяется по маркерам за всю историю
+  // (getCashOperations отдаёт операции в порядке created_at desc):
+  // openedAt — самый свежий маркер «Открытие смены», верхняя граница —
+  // маркер «Закрытие смены», если смена уже закрыта. Календарный день
+  // (isSameDay/UTC) для выручки смены не используется.
+  const lastOpenShiftOperation = cashOperations.find(
+    (operation) =>
+      (operation.category || '').toLowerCase() ===
+      SHIFT_OPEN_CATEGORY.toLowerCase(),
   )
-  const shiftRevenue = shiftPayments.reduce((sum, payment) => sum + payment.amount, 0)
+  const lastCloseShiftOperation = cashOperations.find(
+    (operation) =>
+      (operation.category || '').toLowerCase() ===
+      SHIFT_CLOSE_CATEGORY.toLowerCase(),
+  )
+
+  const shiftOpenedAt = lastOpenShiftOperation
+    ? new Date(lastOpenShiftOperation.createdAt)
+    : null
+  const shiftClosedAt = lastCloseShiftOperation
+    ? new Date(lastCloseShiftOperation.createdAt)
+    : null
+
+  const shiftOrderPayments =
+    shiftOpenedAt === null
+      ? []
+      : incomePayments.filter(
+          (payment) =>
+            payment.orderId &&
+            new Date(payment.createdAt) >= shiftOpenedAt &&
+            new Date(payment.createdAt) <=
+              (shiftClosedAt && shiftClosedAt > shiftOpenedAt
+                ? shiftClosedAt
+                : now),
+        )
+
+  const shiftRevenue = shiftOrderPayments.reduce(
+    (sum, payment) => sum + payment.amount,
+    0,
+  )
   // «Деньги в кассах» — только активные кассы (согласовано с /cash-registers).
   const cashTotal = cashRegisters
     .filter((register) => register.isActive)
@@ -182,7 +219,7 @@ export async function getDashboardSummary() {
     },
     payments: {
       income: incomePayments,
-      shift: shiftPayments,
+      shift: shiftOrderPayments,
     },
     parts,
     batches,

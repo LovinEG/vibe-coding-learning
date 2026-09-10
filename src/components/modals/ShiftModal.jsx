@@ -7,7 +7,8 @@ import './ShiftModal.css'
 
 // Модальное окно управления сменой прямо с Дашборда:
 // mode 'open' — стартовый остаток и заметка,
-// mode 'close' — итоговый остаток, сумма инкассации/выемки и заметка.
+// mode 'close' — итоговый остаток и заметка.
+// Инкассации в LovinTech нет: деньги остаются в кассе после закрытия.
 function ShiftModal({ open, mode, onClose, onSaved }) {
   const isClosing = mode === 'close'
 
@@ -15,7 +16,6 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
     cashRegisterId: '',
     startCash: '',
     closingBalance: '',
-    withdrawal: '',
     comment: '',
   })
   const [cashRegisters, setCashRegisters] = useState([])
@@ -98,17 +98,10 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
         return 'Укажите корректный стартовый остаток'
       }
     } else {
-      const withdrawal = Number(form.withdrawal || 0)
+      const closingBalance = Number(form.closingBalance || 0)
 
-      if (!Number.isFinite(withdrawal) || withdrawal < 0) {
-        return 'Укажите корректную сумму инкассации'
-      }
-
-      if (
-        withdrawal > 0 &&
-        withdrawal > Number(form.closingBalance || 0)
-      ) {
-        return 'Инкассация не может превышать итоговый остаток'
+      if (!Number.isFinite(closingBalance) || closingBalance < 0) {
+        return 'Укажите корректный итоговый остаток'
       }
     }
 
@@ -133,7 +126,6 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
         await closeShift({
           cashRegisterId: form.cashRegisterId,
           closingBalance: Number(form.closingBalance || 0),
-          withdrawal: Number(form.withdrawal || 0),
           comment: form.comment.trim() || null,
         })
       } else {
@@ -202,7 +194,7 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
             <>
               <label className="shift-modal__field">
                 <span className="shift-modal__label">
-                  Итоговый остаток наличных в кассе
+                  Итоговый остаток наличных в кассе *
                 </span>
                 <input
                   className="shift-modal__input"
@@ -216,21 +208,9 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
                 />
               </label>
 
-              <label className="shift-modal__field">
-                <span className="shift-modal__label">
-                  Сумма инкассации / выемки
-                </span>
-                <input
-                  className="shift-modal__input"
-                  name="withdrawal"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.withdrawal}
-                  onChange={handleChange}
-                />
-              </label>
+              <p className="shift-modal__hint">
+                Деньги остаются в кассе: закрытие смены не уменьшает баланс.
+              </p>
             </>
           ) : (
             <label className="shift-modal__field">

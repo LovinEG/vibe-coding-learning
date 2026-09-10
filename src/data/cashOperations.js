@@ -173,26 +173,12 @@ export async function openShift({ cashRegisterId, startCash, comment }) {
   }
 }
 
-// Закрытие смены: при инкассации/выемке проводится расход,
-// затем — нулевой маркер закрытия с итоговым остатком в комментарии.
-export async function closeShift({
-  cashRegisterId,
-  closingBalance,
-  withdrawal,
-  comment,
-}) {
-  const withdrawalAmount = Number(withdrawal) || 0
-
-  if (withdrawalAmount > 0) {
-    await insertCashOperation({
-      cashRegisterId,
-      type: 'expense',
-      category: SHIFT_WITHDRAWAL_CATEGORY,
-      amount: withdrawalAmount,
-      comment: comment || null,
-    })
-  }
-
+// Закрытие смены: в LovinTech инкассации нет — деньги остаются в кассе.
+// Создаётся только системный маркер «Закрытие смены» с amount = 0,
+// баланс кассы при закрытии не меняется; итоговый остаток пишется в
+// комментарий маркера. SHIFT_WITHDRAWAL_CATEGORY сохранён только для
+// совместимости и исключения исторических записей из финансового отчёта.
+export async function closeShift({ cashRegisterId, closingBalance, comment }) {
   return insertCashOperation({
     cashRegisterId,
     type: 'expense',
