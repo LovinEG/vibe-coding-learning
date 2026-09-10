@@ -30,7 +30,8 @@ const STATUS_BADGES = {
 // Быстрые фильтры таблицы активных заказов.
 const ORDER_FILTERS = [
   { value: 'all', label: 'Все' },
-  { value: 'Новый', label: 'Диагностика' },
+  { value: 'Новый', label: 'Новый' },
+  { value: 'Диагностика', label: 'Диагностика' },
   { value: 'В работе', label: 'В работе' },
   { value: 'Ожидает деталь', label: 'Ожидает деталь' },
   { value: 'Готово к выдаче', label: 'Готово' },

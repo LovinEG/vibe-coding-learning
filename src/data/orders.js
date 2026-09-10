@@ -55,9 +55,11 @@ const ORDER_DETAILS_SELECT =
   'order_parts(*, parts(id, sku, name, category), added_by_profile:profiles!added_by(full_name)), ' +
   'order_status_history(*, profiles(full_name, avatar_url))'
 
-// Незавершённые статусы — участвуют в расчёте просрочки.
+// Незавершённые статусы — участвуют в расчёте просрочки (SLA 4 дня).
+// «Закрыт», «Отменён» и легаси «Выдан» завершённые и просроченными не считаются.
 export const ACTIVE_ORDER_STATUSES = [
   'Новый',
+  'Диагностика',
   'В работе',
   'Ожидает деталь',
   'Готово к выдаче',
@@ -65,7 +67,7 @@ export const ACTIVE_ORDER_STATUSES = [
 
 // SLA ремонта по умолчанию: если deadline_at не задан, заказ считается
 // просроченным, если с accepted_at прошло больше 4 календарных дней.
-// Завершённые/выданные заказы просроченными не считаются
+// Завершённые статусы (Закрыт / Отменён / Выдан) просроченными не считаются
 // (проверяется через ACTIVE_ORDER_STATUSES в isOverdueOrder).
 export const OVERDUE_SLA_DAYS = 4
 

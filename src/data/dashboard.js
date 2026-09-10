@@ -49,7 +49,7 @@ function isSameDay(a, b) {
   )
 }
 
-const ACTIVE_STATUSES = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
+const ACTIVE_STATUSES = ['Новый', 'Диагностика', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
 
 function isActiveOrder(order) {
   return ACTIVE_STATUSES.includes(order.status)

@@ -16,7 +16,7 @@ const DEVICE_DETAILS_SELECT =
   'orders!device_id(id, status, defect, price, accepted_at, master:profiles!master_id(full_name))'
 
 // Незавершённые статусы — для подсчёта активных ремонтов устройства.
-const ACTIVE_ORDER_STATUSES = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
+const ACTIVE_ORDER_STATUSES = ['Новый', 'Диагностика', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
 
 function mapDevice(device) {
   const orders = device.orders ?? []

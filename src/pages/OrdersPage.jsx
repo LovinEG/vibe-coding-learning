@@ -14,7 +14,7 @@ import { getEmployees } from '../data/tasks'
 import { formatDate, formatPrice } from '../lib/format'
 import './Page.css'
 
-const STATUSES = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
+const STATUSES = ['Новый', 'Диагностика', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
 const FILTERS = ['Все', ...STATUSES, 'Просроченные']
 
 // Периоды для фильтра по дате приёма (скользящие окна от сегодня).
@@ -28,6 +28,7 @@ const DATE_FILTERS = [
 // Маппинг query-параметров дашборда (/orders?status=...) на фильтры страницы.
 const STATUS_PARAM_MAP = {
   new: 'Новый',
+  diagnostics: 'Диагностика',
   'in-work': 'В работе',
   waiting: 'Ожидает деталь',
   ready: 'Готово к выдаче',
