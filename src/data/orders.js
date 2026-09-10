@@ -63,9 +63,11 @@ export const ACTIVE_ORDER_STATUSES = [
   'Готово к выдаче',
 ]
 
-// SLA ремонта по умолчанию: если deadline_at не задан, просрочка
-// считается от даты приёма + 7 календарных дней.
-export const OVERDUE_SLA_DAYS = 7
+// SLA ремонта по умолчанию: если deadline_at не задан, заказ считается
+// просроченным, если с accepted_at прошло больше 4 календарных дней.
+// Завершённые/выданные заказы просроченными не считаются
+// (проверяется через ACTIVE_ORDER_STATUSES в isOverdueOrder).
+export const OVERDUE_SLA_DAYS = 4
 
 // Каталог типов ремонта для фильтра и формы заказа.
 export const REPAIR_TYPE_OPTIONS = [

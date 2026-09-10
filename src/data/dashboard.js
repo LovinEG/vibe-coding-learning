@@ -13,8 +13,8 @@ import {
 import { getStockBatches } from './stockBatches'
 
 // Срок ремонта по умолчанию: в схеме orders нет поля deadline, поэтому
-// просрочка и расчётный срок считаются от даты приёма (7 календарных дней).
-const REPAIR_SLA_DAYS = 7
+// просрочка и расчётный срок считаются от даты приёма (4 календарных дня).
+const REPAIR_SLA_DAYS = 4
 
 function startOfDay(date) {
   const copy = new Date(date)

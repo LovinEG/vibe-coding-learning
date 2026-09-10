@@ -276,12 +276,6 @@ function DashboardPage() {
           >
             Найти клиента
           </Button>
-          <Button
-            className="dashboard-page__action--secondary"
-            onClick={() => go('/orders')}
-          >
-            Принять устройство
-          </Button>
           {shift.isOpen ? (
             <Button
               className="dashboard-page__action--secondary"
