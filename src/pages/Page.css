@@ -3617,6 +3617,15 @@
   border-color: var(--color-border);
 }
 
+/* «Оплатить и закрыть»: размер как у «Редактировать» (back-button),
+   но с акцентным стилем из .ui-button. */
+.order-detail-page__pay-button {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
 .order-detail-page__clipboard {
   margin-top: 16px;
 }

@@ -494,7 +494,10 @@ function OrderDetailPage() {
         {/* «Оплатить и закрыть»: только для заказов, готовых к выдаче.
             Пока это UI-заглушка — кассу не проводит и статус не меняет. */}
         {order.status === 'Готово к выдаче' ? (
-          <Button onClick={() => setPayCloseModalOpen(true)}>
+          <Button
+            className="order-detail-page__pay-button"
+            onClick={() => setPayCloseModalOpen(true)}
+          >
             💰 Оплатить и закрыть
           </Button>
         ) : null}
