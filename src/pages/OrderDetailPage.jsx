@@ -1131,7 +1131,10 @@ function OrderDetailPage() {
       ) : null}
 
       {payCloseModalOpen ? (
-        <CloseOrderModal onClose={() => setPayCloseModalOpen(false)} />
+        <CloseOrderModal
+          order={order}
+          onClose={() => setPayCloseModalOpen(false)}
+        />
       ) : null}
 
       {/* Лайтбокс: предпросмотр фотографий */}
