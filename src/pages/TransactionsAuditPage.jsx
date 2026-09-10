@@ -2,11 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getTransactions } from '../data/transactions'
 import { getCashRegisters } from '../data/cashRegisters'
 import { getOrderPartsByOrderIds } from '../data/orderParts'
-import {
-  SHIFT_WITHDRAWAL_CATEGORY,
-  SHIFT_SURPLUS_CATEGORY,
-  SHIFT_SHORTAGE_CATEGORY,
-} from '../data/cashOperations'
+import { SHIFT_SYSTEM_CATEGORIES } from '../data/cashOperations'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import { usePermission } from '../lib/usePermission'
 import './Page.css'
@@ -254,11 +250,9 @@ function TransactionsAuditPage() {
       return null
     }
 
-    const systemCategories = [
-      SHIFT_WITHDRAWAL_CATEGORY,
-      SHIFT_SURPLUS_CATEGORY,
-      SHIFT_SHORTAGE_CATEGORY,
-    ]
+    // Все системные категории смен — технические движения кассы
+    // (маркеры, инкассация, излишек/недостача), в прибыль не входят.
+    const systemCategories = SHIFT_SYSTEM_CATEGORIES
 
     const operationalCashExpense = periodFiltered
       .filter(

@@ -34,9 +34,10 @@ export async function getCashOperations() {
   return (data ?? []).map(mapOperation)
 }
 
-// Проведение операции: INSERT в cash_operations запускает триггер, который
-// автоматически обновляет баланс кассы (income — плюс, expense — минус).
-export async function addCashOperation({
+// Внутренний INSERT без ограничения категории. Приватный хелпер — только
+// для системных операций смен (openShift / closeShift); из форм недоступен,
+// потому что не экспортируется.
+async function insertCashOperation({
   cashRegisterId,
   type,
   category,
@@ -65,6 +66,30 @@ export async function addCashOperation({
   return mapOperation(data)
 }
 
+// Проведение операции вручную: INSERT в cash_operations запускает триггер,
+// который автоматически обновляет баланс кассы (income — плюс, expense —
+// минус). Системные категории смен из форм запрещены — их создаёт только
+// openShift / closeShift через приватный insertCashOperation.
+export async function addCashOperation({
+  cashRegisterId,
+  type,
+  category,
+  amount,
+  comment,
+}) {
+  if (SHIFT_SYSTEM_CATEGORIES.includes(category?.trim())) {
+    throw new Error('Категория зарезервирована для системных операций смены')
+  }
+
+  return insertCashOperation({
+    cashRegisterId,
+    type,
+    category,
+    amount,
+    comment,
+  })
+}
+
 // ---------------- Смены ----------------
 // Смены фиксируются кассовыми операциями с особыми категориями:
 // «Открытие смены» и «Закрытие смены» — служебные маркеры с amount = 0
@@ -75,6 +100,17 @@ export const SHIFT_CLOSE_CATEGORY = 'Закрытие смены'
 export const SHIFT_WITHDRAWAL_CATEGORY = 'Инкассация / выемка'
 export const SHIFT_SURPLUS_CATEGORY = 'Излишек при открытии смены'
 export const SHIFT_SHORTAGE_CATEGORY = 'Недостача при открытии смены'
+
+// Все системные категории смен: технические движения кассы, которые нельзя
+// создавать вручную (CashOperationModal и addCashOperation их отклоняют).
+// Финансовый отчёт исключает их из расчёта прибыли.
+export const SHIFT_SYSTEM_CATEGORIES = [
+  SHIFT_OPEN_CATEGORY,
+  SHIFT_CLOSE_CATEGORY,
+  SHIFT_WITHDRAWAL_CATEGORY,
+  SHIFT_SURPLUS_CATEGORY,
+  SHIFT_SHORTAGE_CATEGORY,
+]
 
 // Открытие смены. Введённая пользователем сумма — фактический остаток
 // наличных в кассе (стартовый баланс), а НЕ сумма прихода:
@@ -99,7 +135,7 @@ export async function openShift({ cashRegisterId, startCash, comment }) {
     }
 
     // Служебный маркер открытия смены: баланс не меняет.
-    const marker = await addCashOperation({
+    const marker = await insertCashOperation({
       cashRegisterId,
       type: 'income',
       category: SHIFT_OPEN_CATEGORY,
@@ -116,7 +152,7 @@ export async function openShift({ cashRegisterId, startCash, comment }) {
     const diff = startCashAmount - currentBalance
 
     if (diff !== 0) {
-      await addCashOperation({
+      await insertCashOperation({
         cashRegisterId,
         type: diff > 0 ? 'income' : 'expense',
         category:
@@ -148,7 +184,7 @@ export async function closeShift({
   const withdrawalAmount = Number(withdrawal) || 0
 
   if (withdrawalAmount > 0) {
-    await addCashOperation({
+    await insertCashOperation({
       cashRegisterId,
       type: 'expense',
       category: SHIFT_WITHDRAWAL_CATEGORY,
@@ -157,7 +193,7 @@ export async function closeShift({
     })
   }
 
-  return addCashOperation({
+  return insertCashOperation({
     cashRegisterId,
     type: 'expense',
     category: SHIFT_CLOSE_CATEGORY,

@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { addCashOperation } from '../../data/cashOperations'
+import {
+  addCashOperation,
+  SHIFT_SYSTEM_CATEGORIES,
+} from '../../data/cashOperations'
 import { getCashRegisters } from '../../data/cashRegisters'
 import Button from '../ui/Button'
 import './CashOperationModal.css'
@@ -9,13 +12,29 @@ const TYPE_OPTIONS = [
   { value: 'expense', label: 'Расход' },
 ]
 
-const CATEGORY_OPTIONS = [
+// Категории зависят от типа операции: расходы бизнеса и прочие приходы.
+// Системные категории смен в списки не входят — их создаёт только модалка
+// смен (ShiftModal) через внутренний код data-слоя.
+const EXPENSE_CATEGORY_OPTIONS = [
   { value: 'Аренда', label: 'Аренда' },
   { value: 'Зарплата', label: 'Зарплата' },
   { value: 'Маркетинг', label: 'Маркетинг' },
   { value: 'Канцелярия', label: 'Канцелярия' },
-  { value: 'Прочее', label: 'Прочее' },
+  { value: 'Коммунальные услуги / связь', label: 'Коммунальные услуги / связь' },
+  { value: 'Логистика / доставка', label: 'Логистика / доставка' },
+  { value: 'Прочие расходы', label: 'Прочие расходы' },
 ]
+
+const INCOME_CATEGORY_OPTIONS = [
+  { value: 'Возврат от поставщика', label: 'Возврат от поставщика' },
+  { value: 'Продажа б/у запчастей', label: 'Продажа б/у запчастей' },
+  { value: 'Компенсация от клиента', label: 'Компенсация от клиента' },
+  { value: 'Прочий приход', label: 'Прочий приход' },
+]
+
+function getCategoryOptions(type) {
+  return type === 'income' ? INCOME_CATEGORY_OPTIONS : EXPENSE_CATEGORY_OPTIONS
+}
 
 const emptyForm = {
   type: 'expense',
@@ -72,10 +91,43 @@ function CashOperationModal({ open, onClose, onSaved }) {
 
   function handleChange(event) {
     const { name, value } = event.target
+
+    // При смене типа операции категория могла перестать соответствовать
+    // новому списку — сбрасываем её, чтобы пользователь выбрал заново.
+    if (name === 'type') {
+      setForm((prev) => ({
+        ...prev,
+        type: value,
+        category: getCategoryOptions(value).some(
+          (option) => option.value === prev.category,
+        )
+          ? prev.category
+          : '',
+      }))
+      return
+    }
+
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
   function validate() {
+    if (SHIFT_SYSTEM_CATEGORIES.includes(form.category.trim())) {
+      return 'Категория зарезервирована для системных операций смены'
+    }
+
+    if (!form.category.trim()) {
+      return 'Укажите категорию'
+    }
+
+    // Категория должна быть из списка выбранного типа операции.
+    if (
+      !getCategoryOptions(form.type).some(
+        (option) => option.value === form.category,
+      )
+    ) {
+      return 'Укажите корректную категорию'
+    }
+
     if (!form.cashRegisterId) {
       return 'Выберите кассу'
     }
@@ -194,7 +246,7 @@ function CashOperationModal({ open, onClose, onSaved }) {
               onChange={handleChange}
             >
               <option value="">Выберите категорию</option>
-              {CATEGORY_OPTIONS.map((option) => (
+              {getCategoryOptions(form.type).map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
