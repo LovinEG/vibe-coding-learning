@@ -37,12 +37,54 @@ const SOURCE_FILTERS = [
   { value: 'cash_operation', label: 'Кассовые операции' },
 ]
 
+// Период финансового отчёта (влияет и на KPI, и на журнал).
+const PERIOD_FILTERS = [
+  { value: 'all', label: 'Всё время' },
+  { value: 'today', label: 'Сегодня' },
+  { value: 'week', label: 'Эта неделя' },
+  { value: 'month', label: 'Этот месяц' },
+]
+
+// Границы периодов — та же семантика, что на дашборде (неделя с понедельника).
+function startOfDay(date) {
+  const copy = new Date(date)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+function startOfWeek(date) {
+  const copy = startOfDay(date)
+  const day = (copy.getDay() + 6) % 7 // Пн = 0 ... Вс = 6
+  copy.setDate(copy.getDate() - day)
+  return copy
+}
+
+function startOfMonth(date) {
+  const copy = startOfDay(date)
+  copy.setDate(1)
+  return copy
+}
+
+function getPeriodStart(value, now) {
+  if (value === 'today') {
+    return startOfDay(now)
+  }
+  if (value === 'week') {
+    return startOfWeek(now)
+  }
+  if (value === 'month') {
+    return startOfMonth(now)
+  }
+  return null
+}
+
 function TransactionsAuditPage() {
   const [transactions, setTransactions] = useState([])
   const [cashRegisters, setCashRegisters] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [periodFilter, setPeriodFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   const [sourceFilter, setSourceFilter] = useState('all')
 
@@ -84,28 +126,54 @@ function TransactionsAuditPage() {
     }
   }, [])
 
-  // Сводные метрики считаются по всем загруженным транзакциям (без фильтров).
-  const totals = useMemo(() => {
-    const income = transactions
-      .filter((item) => item.type === 'income')
-      .reduce((sum, item) => sum + item.amount, 0)
-    const expense = transactions
-      .filter((item) => item.type === 'expense')
-      .reduce((sum, item) => sum + item.amount, 0)
+  // Транзакции выбранного периода — основа и для KPI, и для журнала ниже.
+  const periodFiltered = useMemo(() => {
+    const periodStart = getPeriodStart(periodFilter, new Date())
+
+    if (!periodStart) {
+      return transactions
+    }
+
+    return transactions.filter(
+      (transaction) => new Date(transaction.date) >= periodStart,
+    )
+  }, [transactions, periodFilter])
+
+  // KPI финансового отчёта по выбранному периоду (без учёта фильтров
+  // типа/источника/поиска — так раньше считались общие итоги):
+  // выручка — только income-платежи с привязкой к заказу (order_id);
+  // прочие приходы — income без order_id и income кассовых операций;
+  // расходы — все expense из payments и cash_operations.
+  const kpis = useMemo(() => {
+    let revenue = 0
+    let otherIncome = 0
+    let expense = 0
+
+    for (const transaction of periodFiltered) {
+      if (transaction.type === 'income') {
+        if (transaction.source === 'payment' && transaction.orderId) {
+          revenue += transaction.amount
+        } else {
+          otherIncome += transaction.amount
+        }
+      } else if (transaction.type === 'expense') {
+        expense += transaction.amount
+      }
+    }
 
     return {
-      count: transactions.length,
-      income,
+      revenue,
+      otherIncome,
       expense,
-      net: income - expense,
+      net: revenue + otherIncome - expense,
     }
-  }, [transactions])
+  }, [periodFiltered])
 
   const normalizedSearch = search.trim().toLowerCase()
 
   const filteredTransactions = useMemo(
     () =>
-      transactions.filter((transaction) => {
+      periodFiltered.filter((transaction) => {
         if (typeFilter !== 'all' && transaction.type !== typeFilter) {
           return false
         }
@@ -134,15 +202,15 @@ function TransactionsAuditPage() {
           .toLowerCase()
           .includes(normalizedSearch)
       }),
-    [transactions, typeFilter, sourceFilter, normalizedSearch],
+    [periodFiltered, typeFilter, sourceFilter, normalizedSearch],
   )
 
   if (!canView) {
     return (
       <div className="page transactions-page">
-        <h1 className="transactions-page__title">Транзакции и аудит</h1>
+        <h1 className="transactions-page__title">Финансовый отчёт</h1>
         <p className="transactions-page__error" role="alert">
-          У вас нет прав для просмотра раздела «Транзакции и аудит».
+          У вас нет прав для просмотра раздела «Финансовый отчёт».
         </p>
       </div>
     )
@@ -152,33 +220,34 @@ function TransactionsAuditPage() {
     <div className="page transactions-page">
       <div className="transactions-page__head">
         <div>
-          <h1 className="transactions-page__title">Транзакции и аудит</h1>
+          <h1 className="transactions-page__title">Финансовый отчёт</h1>
           <p className="transactions-page__hint">
-            Единый журнал финансовых движений: оплаты по заказам и кассовые
-            операции.
+            Движение денег: выручка по заказам, прочие приходы и расходы касс.
           </p>
         </div>
       </div>
 
       <div className="transactions-page__totals">
-        <div className="transactions-page__total transactions-page__total--count">
+        <div className="transactions-page__total transactions-page__total--income">
           <span className="transactions-page__total-label">
-            Всего транзакций
+            Выручка (оплаты заказов)
           </span>
-          <span className="transactions-page__total-value">{totals.count}</span>
+          <span className="transactions-page__total-value">
+            +{formatCurrency(kpis.revenue)}
+          </span>
         </div>
 
         <div className="transactions-page__total transactions-page__total--income">
-          <span className="transactions-page__total-label">Общий приход</span>
+          <span className="transactions-page__total-label">Прочие приходы</span>
           <span className="transactions-page__total-value">
-            +{formatCurrency(totals.income)}
+            +{formatCurrency(kpis.otherIncome)}
           </span>
         </div>
 
         <div className="transactions-page__total transactions-page__total--expense">
-          <span className="transactions-page__total-label">Общий расход</span>
+          <span className="transactions-page__total-label">Расходы</span>
           <span className="transactions-page__total-value">
-            −{formatCurrency(totals.expense)}
+            −{formatCurrency(kpis.expense)}
           </span>
         </div>
 
@@ -187,8 +256,8 @@ function TransactionsAuditPage() {
             Чистый денежный поток
           </span>
           <span className="transactions-page__total-value">
-            {totals.net >= 0 ? '+' : '−'}
-            {formatCurrency(Math.abs(totals.net))}
+            {kpis.net >= 0 ? '+' : '−'}
+            {formatCurrency(Math.abs(kpis.net))}
           </span>
         </div>
       </div>
@@ -199,10 +268,23 @@ function TransactionsAuditPage() {
         placeholder="Поиск по номеру заказа, клиенту, категории, оператору..."
         value={search}
         onChange={(event) => setSearch(event.target.value)}
-        aria-label="Поиск по транзакциям"
+        aria-label="Поиск по операциям"
       />
 
       <div className="transactions-page__filters">
+        {PERIOD_FILTERS.map((filter) => (
+          <button
+            key={filter.value}
+            type="button"
+            className={`transactions-page__filter${
+              periodFilter === filter.value ? ' is-active' : ''
+            }`}
+            onClick={() => setPeriodFilter(filter.value)}
+          >
+            {filter.label}
+          </button>
+        ))}
+
         {TYPE_FILTERS.map((filter) => (
           <button
             key={filter.value}
@@ -251,7 +333,9 @@ function TransactionsAuditPage() {
           {error}
         </p>
       ) : filteredTransactions.length === 0 ? (
-        <p className="transactions-page__empty">Транзакции не найдены</p>
+        <p className="transactions-page__empty">
+          Операции за выбранный период не найдены
+        </p>
       ) : (
         <div className="transactions-page__table">
           <div className="transactions-page__table-header">
