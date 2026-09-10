@@ -55,8 +55,8 @@ const ORDER_DETAILS_SELECT =
   'order_parts(*, parts(id, sku, name, category), added_by_profile:profiles!added_by(full_name)), ' +
   'order_status_history(*, profiles(full_name, avatar_url))'
 
-// Незавершённые статусы — участвуют в расчёте просрочки (SLA 4 дня).
-// «Закрыт», «Отменён» и легаси «Выдан» завершённые и просроченными не считаются.
+// Незавершённые (активные) статусы заказа.
+// «Закрыт», «Отменён» и легаси «Выдан» завершённые и активными не считаются.
 export const ACTIVE_ORDER_STATUSES = [
   'Новый',
   'Диагностика',
@@ -65,10 +65,20 @@ export const ACTIVE_ORDER_STATUSES = [
   'Готово к выдаче',
 ]
 
+// Отдельный список для SLA-просрочки: активные статусы минус «Готово к
+// выдаче» (ремонт завершён, ждём клиента — просроченным ремонтом не считается).
+export const OVERDUE_ORDER_STATUSES = [
+  'Новый',
+  'Диагностика',
+  'В работе',
+  'Ожидает деталь',
+]
+
 // SLA ремонта по умолчанию: если deadline_at не задан, заказ считается
 // просроченным, если с accepted_at прошло больше 4 календарных дней.
-// Завершённые статусы (Закрыт / Отменён / Выдан) просроченными не считаются
-// (проверяется через ACTIVE_ORDER_STATUSES в isOverdueOrder).
+// «Готово к выдаче» и завершённые статусы (Закрыт / Отменён / Выдан)
+// просроченными не считаются (проверяется через OVERDUE_ORDER_STATUSES
+// в isOverdueOrder).
 export const OVERDUE_SLA_DAYS = 4
 
 // Каталог типов ремонта для фильтра и формы заказа.
@@ -157,10 +167,10 @@ function mapHistoryRow(row) {
   }
 }
 
-// Просрочен ли заказ: незавершённый статус и (deadline_at < now
-// либо, при незаданном сроке, приём старше SLA).
+// Просрочен ли заказ: статус из SLA-списка (без «Готово к выдаче») и
+// (deadline_at < now либо, при незаданном сроке, приём старше SLA).
 export function isOverdueOrder(order, now = new Date()) {
-  if (!ACTIVE_ORDER_STATUSES.includes(order.status)) {
+  if (!OVERDUE_ORDER_STATUSES.includes(order.status)) {
     return false
   }
 
@@ -227,7 +237,7 @@ export async function getOrders(filters = {}) {
     const slaIso = slaCutoff.toISOString()
 
     query = query
-      .in('status', ACTIVE_ORDER_STATUSES)
+      .in('status', OVERDUE_ORDER_STATUSES)
       // Просрочен: срок наступил либо (без срока) приём старше SLA.
       .or(`deadline_at.lt.${nowIso},and(accepted_at.lt.${slaIso},deadline_at.is.null)`)
   }
