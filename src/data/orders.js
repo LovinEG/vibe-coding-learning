@@ -123,6 +123,8 @@ function mapOrder(row) {
     diagnosticResult: row.diagnostic_result ?? null,
     approvalStatus: row.approval_status ?? 'not_required',
     approvalComment: row.approval_comment ?? null,
+    // Момент фактического закрытия (RPC close_order); для легаси-«Выдан» — null.
+    closedAt: row.closed_at ?? null,
   }
 }
 

@@ -107,7 +107,7 @@ function DashboardPage() {
     if (!summary) {
       return null
     }
-    return buildFinanceSummary(summary.payments.income, summary.orders.active, now)
+    return buildFinanceSummary(summary.payments.income, summary.orders.all, now)
   }, [summary, now])
 
   const stock = useMemo(() => {
@@ -205,9 +205,9 @@ function DashboardPage() {
       accent: false,
     },
     {
-      label: 'Выдано сегодня',
-      value: String(metrics.issuedToday),
-      to: '/payments',
+      label: 'Закрыто сегодня',
+      value: String(metrics.closedToday),
+      to: '/orders',
       accent: false,
     },
     {

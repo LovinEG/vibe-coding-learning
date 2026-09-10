@@ -1,5 +1,6 @@
 import {
   getOrders,
+  OVERDUE_ORDER_STATUSES,
 } from './orders'
 import { getParts } from './inventory'
 import { getCashRegisters } from './cashRegisters'
@@ -51,12 +52,16 @@ function isSameDay(a, b) {
 
 const ACTIVE_STATUSES = ['Новый', 'Диагностика', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
 
+// Просрочка SLA — по тому же списку, что и в разделе «Заказы»
+// (OVERDUE_ORDER_STATUSES: без «Готово к выдаче» и завершённых статусов).
+const OVERDUE_STATUSES = OVERDUE_ORDER_STATUSES
+
 function isActiveOrder(order) {
   return ACTIVE_STATUSES.includes(order.status)
 }
 
 function isOverdueOrder(order, now) {
-  if (!isActiveOrder(order) || !order.acceptedAt) {
+  if (!OVERDUE_STATUSES.includes(order.status) || !order.acceptedAt) {
     return false
   }
 
@@ -86,24 +91,30 @@ export async function getDashboardSummary() {
   const acceptedToday = orders.filter(
     (order) => order.acceptedAt && isSameDay(new Date(order.acceptedAt), now),
   )
-  const awaitingApproval = orders.filter((order) => order.status === 'Новый')
+  // «Требуют согласования» — по факту отправки сметы клиенту (approval_status),
+  // а не по статусу «Новый».
+  const awaitingApproval = orders.filter(
+    (order) => order.approvalStatus === 'pending',
+  )
   const awaitingParts = orders.filter((order) => order.status === 'Ожидает деталь')
 
   const incomePayments = payments.filter((payment) => payment.type === 'income')
 
-  // «Выданные сегодня» — заказы, за которые сегодня пришёл income-платёж
-  // (в orders нет даты выдачи, оплата — надёжный прокси).
-  const issuedTodayOrderIds = new Set(
-    incomePayments
-      .filter((payment) => payment.orderId && isSameDay(new Date(payment.createdAt), now))
-      .map((payment) => payment.orderId),
-  )
+  // «Закрыто сегодня» — по orders.closed_at (пишет RPC close_order).
+  // Легаси-«Выдан» (closed_at = null) сюда не попадает.
+  const closedToday = orders.filter(
+    (order) =>
+      order.closedAt && isSameDay(new Date(order.closedAt), now),
+  ).length
 
   const shiftPayments = incomePayments.filter((payment) =>
     isSameDay(new Date(payment.createdAt), now),
   )
   const shiftRevenue = shiftPayments.reduce((sum, payment) => sum + payment.amount, 0)
-  const cashTotal = cashRegisters.reduce((sum, register) => sum + register.balance, 0)
+  // «Деньги в кассах» — только активные кассы (согласовано с /cash-registers).
+  const cashTotal = cashRegisters
+    .filter((register) => register.isActive)
+    .reduce((sum, register) => sum + register.balance, 0)
 
   // Статус смены: по самой свежей служебной операции за сегодня.
   // Даты сравниваем по UTC-строке YYYY-MM-DD (не по локальному startOfDay).
@@ -149,7 +160,7 @@ export async function getDashboardSummary() {
       activeOrders: activeOrders.length,
       overdueOrders: overdueOrders.length,
       acceptedToday: acceptedToday.length,
-      issuedToday: issuedTodayOrderIds.size,
+      closedToday,
       awaitingApproval: awaitingApproval.length,
       awaitingParts: awaitingParts.length,
       shiftRevenue,
@@ -161,6 +172,9 @@ export async function getDashboardSummary() {
       operator: shiftOpenOperation?.createdByName ?? null,
     },
     orders: {
+      // Полный список — для финансового агрегатора (дебиторка считает
+      // по «Готово к выдаче» и «Закрыт», которые не входят в active).
+      all: orders,
       active: activeOrders,
       overdue: overdueOrders,
       awaitingParts,
@@ -178,14 +192,20 @@ export async function getDashboardSummary() {
 }
 
 // Финансовые итоги: выручка день/неделя/месяц, нал/безнал за сегодня,
-// дебиторка (выданные заказы, не покрытые приходными платежами).
+// дебиторка. Выручкой считаются только income-платежи, привязанные к
+// заказу (order_id); ручные приходы без заказа выручку не завышают.
+// Дебиторка — заказы «Готово к выдаче» и «Закрыт» с непокрытой платежами
+// стоимостью (легаси-«Выдан» не используется).
 export function buildFinanceSummary(incomePayments, orders, now) {
   const todayStart = startOfDay(now)
   const weekStart = startOfWeek(now)
   const monthStart = startOfMonth(now)
 
+  // Выручка — только income-платежи по заказам.
+  const orderIncomePayments = incomePayments.filter((payment) => payment.orderId)
+
   const sumWhere = (predicate) =>
-    incomePayments
+    orderIncomePayments
       .filter((payment) => predicate(new Date(payment.createdAt)))
       .reduce((sum, payment) => sum + payment.amount, 0)
 
@@ -193,18 +213,19 @@ export function buildFinanceSummary(incomePayments, orders, now) {
   const revenueWeek = sumWhere((date) => date >= weekStart)
   const revenueMonth = sumWhere((date) => date >= monthStart)
 
-  const shiftPayments = incomePayments.filter(
+  const todayOrderPayments = orderIncomePayments.filter(
     (payment) => new Date(payment.createdAt) >= todayStart,
   )
-  const cashToday = shiftPayments
+  const cashToday = todayOrderPayments
     .filter((payment) => payment.paymentMethod === 'cash')
     .reduce((sum, payment) => sum + payment.amount, 0)
-  const cashlessToday = shiftPayments
+  const cashlessToday = todayOrderPayments
     .filter((payment) => payment.paymentMethod !== 'cash')
     .reduce((sum, payment) => sum + payment.amount, 0)
 
-  // Дебиторка: по каждому выданному заказу цена минус приходные платежи,
-  // привязанные к этому заказу (order_id в payments).
+  // Дебиторка: по каждому заказу «Готово к выдаче» / «Закрыт» цена минус
+  // приходные платежи, привязанные к этому заказу (order_id в payments);
+  // учитывается только положительный остаток.
   const paidByOrder = new Map()
   for (const payment of incomePayments) {
     if (!payment.orderId) {
@@ -216,8 +237,10 @@ export function buildFinanceSummary(incomePayments, orders, now) {
     )
   }
 
+  const receivableStatuses = ['Готово к выдаче', 'Закрыт']
+
   const receivableOrders = orders
-    .filter((order) => order.status === 'Выдан')
+    .filter((order) => receivableStatuses.includes(order.status))
     .map((order) => {
       const paid = paidByOrder.get(order.id) ?? 0
       const total = Number(order.price) || 0
