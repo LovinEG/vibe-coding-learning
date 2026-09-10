@@ -2276,6 +2276,14 @@
   color: var(--color-accent);
 }
 
+/* Предупреждение о неполной себестоимости (легаси-строки order_parts
+   без purchase_price) — ненавязчивое, под блоком KPI прибыли. */
+.transactions-page__cost-warning {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--color-warning);
+}
+
 .transactions-page__search {
   display: block;
   width: 100%;

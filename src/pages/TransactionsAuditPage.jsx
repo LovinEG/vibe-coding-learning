@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getTransactions } from '../data/transactions'
 import { getCashRegisters } from '../data/cashRegisters'
+import { getOrderPartsByOrderIds } from '../data/orderParts'
+import {
+  SHIFT_WITHDRAWAL_CATEGORY,
+  SHIFT_SURPLUS_CATEGORY,
+  SHIFT_SHORTAGE_CATEGORY,
+} from '../data/cashOperations'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import { usePermission } from '../lib/usePermission'
 import './Page.css'
@@ -169,6 +175,119 @@ function TransactionsAuditPage() {
     }
   }, [periodFiltered])
 
+  // Уникальные заказы, давшие выручку за период (себестоимость заказа
+  // учитывается один раз, даже если по нему было несколько платежей).
+  const revenueOrderIds = useMemo(
+    () => [
+      ...new Set(
+        periodFiltered
+          .filter(
+            (transaction) =>
+              transaction.type === 'income' &&
+              transaction.source === 'payment' &&
+              transaction.orderId,
+          )
+          .map((transaction) => transaction.orderId),
+      ),
+    ],
+    [periodFiltered],
+  )
+
+  const revenueOrderIdsKey = revenueOrderIds.join('|')
+
+  // Себестоимость деталей по заказам выручки. purchase_price IS NULL —
+  // легаси-строки: в себестоимость не попадают, считаются отдельно
+  // (предупреждение о возможном завышении прибыли).
+  const [orderPartsCost, setOrderPartsCost] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setOrderPartsCost(null)
+
+    async function loadOrderPartsCost() {
+      const ids = revenueOrderIdsKey ? revenueOrderIdsKey.split('|') : []
+
+      try {
+        const rows = await getOrderPartsByOrderIds(ids)
+
+        if (cancelled) {
+          return
+        }
+
+        let cost = 0
+        let unknownCount = 0
+
+        for (const row of rows) {
+          const qty = Number(row.quantity) || 0
+
+          if (row.purchase_price === null || row.purchase_price === undefined) {
+            unknownCount += 1
+            continue
+          }
+
+          cost += Number(row.purchase_price) * qty
+        }
+
+        setOrderPartsCost({ cost, unknownCount })
+      } catch (err) {
+        console.error('Не удалось загрузить себестоимость деталей:', err)
+
+        if (!cancelled) {
+          setOrderPartsCost({ cost: null, unknownCount: 0 })
+        }
+      }
+    }
+
+    loadOrderPartsCost()
+
+    return () => {
+      cancelled = true
+    }
+  }, [revenueOrderIdsKey])
+
+  // Прибыль: валовая (выручка − себестоимость деталей) и операционная
+  // (валовая − кассовые расходы без системных категорий смен − expense
+  // payments). Прочие income в прибыль не входят — они в KPI денежного
+  // потока. Пока себестоимость не загружена, KPI показывают «—».
+  const profitKpis = useMemo(() => {
+    if (!orderPartsCost || orderPartsCost.cost === null) {
+      return null
+    }
+
+    const systemCategories = [
+      SHIFT_WITHDRAWAL_CATEGORY,
+      SHIFT_SURPLUS_CATEGORY,
+      SHIFT_SHORTAGE_CATEGORY,
+    ]
+
+    const operationalCashExpense = periodFiltered
+      .filter(
+        (transaction) =>
+          transaction.type === 'expense' &&
+          transaction.source === 'cash_operation' &&
+          !systemCategories.includes(transaction.category),
+      )
+      .reduce((sum, transaction) => sum + transaction.amount, 0)
+
+    const paymentExpense = periodFiltered
+      .filter(
+        (transaction) =>
+          transaction.type === 'expense' && transaction.source === 'payment',
+      )
+      .reduce((sum, transaction) => sum + transaction.amount, 0)
+
+    const partsCost = orderPartsCost.cost
+    const grossProfit = kpis.revenue - partsCost
+    const operationalExpense = operationalCashExpense + paymentExpense
+
+    return {
+      partsCost,
+      grossProfit,
+      operationalExpense,
+      operatingProfit: grossProfit - operationalExpense,
+    }
+  }, [kpis, periodFiltered, orderPartsCost])
+
   const normalizedSearch = search.trim().toLowerCase()
 
   const filteredTransactions = useMemo(
@@ -261,6 +380,59 @@ function TransactionsAuditPage() {
           </span>
         </div>
       </div>
+
+      <div className="transactions-page__totals">
+        <div className="transactions-page__total transactions-page__total--expense">
+          <span className="transactions-page__total-label">
+            Себестоимость деталей
+          </span>
+          <span className="transactions-page__total-value">
+            {profitKpis ? `−${formatCurrency(profitKpis.partsCost)}` : '—'}
+          </span>
+        </div>
+
+        <div className="transactions-page__total transactions-page__total--net">
+          <span className="transactions-page__total-label">
+            Валовая прибыль
+          </span>
+          <span className="transactions-page__total-value">
+            {profitKpis
+              ? `${profitKpis.grossProfit >= 0 ? '+' : '−'}${formatCurrency(
+                  Math.abs(profitKpis.grossProfit),
+                )}`
+              : '—'}
+          </span>
+        </div>
+
+        <div className="transactions-page__total transactions-page__total--expense">
+          <span className="transactions-page__total-label">
+            Операционные расходы
+          </span>
+          <span className="transactions-page__total-value">
+            {profitKpis ? `−${formatCurrency(profitKpis.operationalExpense)}` : '—'}
+          </span>
+        </div>
+
+        <div className="transactions-page__total transactions-page__total--net">
+          <span className="transactions-page__total-label">
+            Операционная прибыль
+          </span>
+          <span className="transactions-page__total-value">
+            {profitKpis
+              ? `${profitKpis.operatingProfit >= 0 ? '+' : '−'}${formatCurrency(
+                  Math.abs(profitKpis.operatingProfit),
+                )}`
+              : '—'}
+          </span>
+        </div>
+      </div>
+
+      {orderPartsCost?.unknownCount > 0 ? (
+        <p className="transactions-page__cost-warning" role="status">
+          Есть {orderPartsCost.unknownCount} позиций без зафиксированной
+          себестоимости. Расчёт прибыли может быть завышен.
+        </p>
+      ) : null}
 
       <input
         className="transactions-page__search"

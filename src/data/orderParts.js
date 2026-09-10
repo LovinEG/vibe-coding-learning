@@ -130,6 +130,26 @@ export async function addOrderPart(orderId, partData = {}) {
   return { orderPart: created, order }
 }
 
+// Минимальное чтение для финансового отчёта: строки order_parts по набору
+// заказов (только поля, нужные для себестоимости: purchase_price — снимок
+// на момент списания; текущий parts.purchase_price не используется).
+export async function getOrderPartsByOrderIds(orderIds) {
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('order_parts')
+    .select('order_id, quantity, purchase_price')
+    .in('order_id', orderIds)
+
+  if (error) {
+    throw error
+  }
+
+  return data ?? []
+}
+
 // Удаление детали из заказа: удаление записи + компенсирующее движение
 // 'return' (возврат на склад) + пересчёт итоговой суммы заказа.
 export async function removePartFromOrder(orderPartId, orderId) {
