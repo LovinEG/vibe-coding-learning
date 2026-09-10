@@ -6,12 +6,9 @@ import { getParts } from './inventory'
 import { getCashRegisters } from './cashRegisters'
 import { getPayments } from './payments'
 import { getTasks } from './tasks'
-import {
-  getCashOperations,
-  SHIFT_CLOSE_CATEGORY,
-  SHIFT_OPEN_CATEGORY,
-} from './cashOperations'
+import { getOpenShift } from './shifts'
 import { getStockBatches } from './stockBatches'
+import { supabase } from '../lib/supabase'
 
 // Срок ремонта по умолчанию: в схеме orders нет поля deadline, поэтому
 // просрочка и расчётный срок считаются от даты приёма (4 календарных дня).
@@ -74,15 +71,24 @@ function isOverdueOrder(order, now) {
 export async function getDashboardSummary() {
   const now = new Date()
 
-  const [orders, parts, cashRegisters, payments, tasks, cashOperations, batches] =
+  // Текущий пользователь — для чтения своей открытой смены из shifts.
+  const { data: userData } = await supabase.auth.getUser()
+  const currentUserId = userData?.user?.id ?? null
+
+  const [orders, parts, cashRegisters, payments, tasks, batches, openShift] =
     await Promise.all([
       getOrders(),
       getParts(),
       getCashRegisters(),
       getPayments(),
       getTasks(),
-      getCashOperations(),
       getStockBatches(),
+      // Смена читается из public.shifts. Пока миграция не применена
+      // (таблицы нет) — деградируем до «смены нет», CRM не падает.
+      getOpenShift(currentUserId).catch((err) => {
+        console.warn('Не удалось загрузить открытую смену:', err.message)
+        return null
+      }),
     ])
 
   // ---------------- Оперативные показатели ----------------
@@ -107,29 +113,21 @@ export async function getDashboardSummary() {
       order.closedAt && isSameDay(new Date(order.closedAt), now),
   ).length
 
-  // Выручка текущей смены — только реальные оплаты заказов: income-платежи
-  // с orderId. Интервал смены определяется по маркерам за всю историю
-  // (getCashOperations отдаёт операции в порядке created_at desc):
-  // openedAt — самый свежий маркер «Открытие смены», верхняя граница —
-  // маркер «Закрытие смены», если смена уже закрыта. Календарный день
-  // (isSameDay/UTC) для выручки смены не используется.
-  const lastOpenShiftOperation = cashOperations.find(
-    (operation) =>
-      (operation.category || '').toLowerCase() ===
-      SHIFT_OPEN_CATEGORY.toLowerCase(),
-  )
-  const lastCloseShiftOperation = cashOperations.find(
-    (operation) =>
-      (operation.category || '').toLowerCase() ===
-      SHIFT_CLOSE_CATEGORY.toLowerCase(),
-  )
+  // Статус смены и интервал выручки — из public.shifts (создаётся RPC
+  // open_shift / close_shift). Легаси-маркеры cash_operations больше
+  // не читаются.
+  const shift = {
+    isOpen: Boolean(openShift),
+    shiftId: openShift?.id ?? null,
+    cashRegisterId: openShift?.cashRegisterId ?? null,
+    openedAt: openShift?.openedAt ?? null,
+    operator: null,
+  }
 
-  const shiftOpenedAt = lastOpenShiftOperation
-    ? new Date(lastOpenShiftOperation.createdAt)
-    : null
-  const shiftClosedAt = lastCloseShiftOperation
-    ? new Date(lastCloseShiftOperation.createdAt)
-    : null
+  // Выручка текущей смены — реальные оплаты заказов (income-платежи
+  // с orderId) с момента opened_at смены. Прочие income без orderId,
+  // кассовые операции и корректировки смен в выручку не входят.
+  const shiftOpenedAt = openShift ? new Date(openShift.openedAt) : null
 
   const shiftOrderPayments =
     shiftOpenedAt === null
@@ -138,10 +136,7 @@ export async function getDashboardSummary() {
           (payment) =>
             payment.orderId &&
             new Date(payment.createdAt) >= shiftOpenedAt &&
-            new Date(payment.createdAt) <=
-              (shiftClosedAt && shiftClosedAt > shiftOpenedAt
-                ? shiftClosedAt
-                : now),
+            new Date(payment.createdAt) <= now,
         )
 
   const shiftRevenue = shiftOrderPayments.reduce(
@@ -152,44 +147,6 @@ export async function getDashboardSummary() {
   const cashTotal = cashRegisters
     .filter((register) => register.isActive)
     .reduce((sum, register) => sum + register.balance, 0)
-
-  // Статус смены: по самой свежей служебной операции за сегодня.
-  // Даты сравниваем по UTC-строке YYYY-MM-DD (не по локальному startOfDay).
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const todayOperations = cashOperations
-    .filter((operation) => {
-      const opDateStr = new Date(operation.createdAt).toISOString().slice(0, 10)
-      return opDateStr === todayStr
-    })
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-
-  // Служебные операции смен, свежие первыми.
-  const shiftOperations = todayOperations
-    .filter((operation) => {
-      const category = (operation.category || '').toLowerCase()
-      return (
-        category === SHIFT_OPEN_CATEGORY.toLowerCase() ||
-        category === SHIFT_CLOSE_CATEGORY.toLowerCase()
-      )
-    })
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-
-  const lastShiftOp = shiftOperations[0]
-
-  // Последняя операция — «Открытие смены» → открыта,
-  // «Закрытие смены» → закрыта; без маркеров — fallback: любые операции
-  // за сегодня означают, что сервис уже работает (смена открыта).
-  const isShiftOpen = lastShiftOp
-    ? lastShiftOp.category.toLowerCase() === SHIFT_OPEN_CATEGORY.toLowerCase()
-    : todayOperations.length > 0
-
-  // Явная запись открытия (для времени и сотрудника); при fallback — первая операция.
-  const shiftOpenOperation =
-    todayOperations.find(
-      (operation) =>
-        operation.category?.toLowerCase() === SHIFT_OPEN_CATEGORY.toLowerCase(),
-    ) ?? todayOperations[0] ??
-    null
 
   return {
     generatedAt: now.toISOString(),
@@ -204,9 +161,11 @@ export async function getDashboardSummary() {
       cashTotal,
     },
     shift: {
-      isOpen: isShiftOpen,
-      openedAt: shiftOpenOperation?.createdAt ?? null,
-      operator: shiftOpenOperation?.createdByName ?? null,
+      isOpen: shift.isOpen,
+      shiftId: shift.shiftId,
+      cashRegisterId: shift.cashRegisterId,
+      openedAt: shift.openedAt,
+      operator: shift.operator,
     },
     orders: {
       // Полный список — для финансового агрегатора (дебиторка считает

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { closeShift, openShift } from '../../data/cashOperations'
+import { supabase } from '../../lib/supabase'
 import { getCashRegisters } from '../../data/cashRegisters'
 import { formatCurrency } from '../../lib/format'
 import Button from '../ui/Button'
@@ -9,7 +9,11 @@ import './ShiftModal.css'
 // mode 'open' — стартовый остаток и заметка,
 // mode 'close' — итоговый остаток и заметка.
 // Инкассации в LovinTech нет: деньги остаются в кассе после закрытия.
-function ShiftModal({ open, mode, onClose, onSaved }) {
+// Открытие/закрытие — через серверные RPC open_shift / close_shift
+// (public.shifts): роль, время (Europe/Minsk) и автор определяются
+// сервером, frontend их не передаёт. Маркеры cash_operations больше
+// не создаются.
+function ShiftModal({ open, mode, shift, onClose, onSaved }) {
   const isClosing = mode === 'close'
 
   const [form, setForm] = useState({
@@ -122,18 +126,34 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
     setSubmitting(true)
 
     try {
+      let rpcError = null
+
       if (isClosing) {
-        await closeShift({
-          cashRegisterId: form.cashRegisterId,
-          closingBalance: Number(form.closingBalance || 0),
-          comment: form.comment.trim() || null,
+        // Закрытие: нужен id текущей открытой смены (public.shifts).
+        // closing_balance — snapshot; баланс кассы RPC не меняет.
+        if (!shift?.shiftId) {
+          setError('Открытая смена не найдена. Обновите страницу.')
+          setSubmitting(false)
+          return
+        }
+
+        const result = await supabase.rpc('close_shift', {
+          p_shift_id: shift.shiftId,
+          p_closing_balance: Number(form.closingBalance || 0),
         })
+        rpcError = result.error
       } else {
-        await openShift({
-          cashRegisterId: form.cashRegisterId,
-          startCash: Number(form.startCash),
-          comment: form.comment.trim() || null,
+        // Открытие: роль, окно 11:00–17:30 (Europe/Minsk) и уникальность
+        // смены проверяет сервер; текст ошибки RPC показываем пользователю.
+        const result = await supabase.rpc('open_shift', {
+          p_cash_register_id: form.cashRegisterId,
+          p_opening_balance: Number(form.startCash || 0),
         })
+        rpcError = result.error
+      }
+
+      if (rpcError) {
+        throw rpcError
       }
 
       if (onSaved) {
@@ -144,9 +164,10 @@ function ShiftModal({ open, mode, onClose, onSaved }) {
     } catch (err) {
       console.error('Не удалось сохранить смену:', err)
       setError(
-        isClosing
-          ? 'Не удалось закрыть смену. Попробуйте ещё раз.'
-          : 'Не удалось открыть смену. Попробуйте ещё раз.',
+        err.message ??
+          (isClosing
+            ? 'Не удалось закрыть смену. Попробуйте ещё раз.'
+            : 'Не удалось открыть смену. Попробуйте ещё раз.'),
       )
     } finally {
       setSubmitting(false)

@@ -168,6 +168,10 @@ function DashboardPage() {
   const { metrics, shift } = summary
   const userName = profile?.full_name || user?.email || 'Сотрудник'
 
+  // Виджет смены — только для manager: admin/user/technician смены
+  // не требуют (shift restriction на них не распространяется).
+  const isManager = profile?.roles?.code === 'manager'
+
   function go(path) {
     navigate(path)
   }
@@ -243,34 +247,36 @@ function DashboardPage() {
           <h1 className="dashboard-page__title">
             {getGreeting(now.getHours())}, {userName}
           </h1>
-          <p className="dashboard-page__shift">
-            {shift.isOpen ? (
-              <>
-                <span className="dashboard-page__shift-dot" aria-hidden="true" />
-                Статус: открыта · {formatDateTime(shift.openedAt)}
-                {shift.operator ? ` · ${shift.operator}` : ''}
-              </>
-            ) : (
-              <>
-                Статус: закрыта
-                <button
-                  type="button"
-                  className="dashboard-page__shift-open-button"
-                  onClick={() => openShiftModal('open')}
+          {isManager ? (
+            <p className="dashboard-page__shift">
+              {shift.isOpen ? (
+                <>
+                  <span className="dashboard-page__shift-dot" aria-hidden="true" />
+                  Статус: открыта · {formatDateTime(shift.openedAt)}
+                  {shift.operator ? ` · ${shift.operator}` : ''}
+                </>
+              ) : (
+                <>
+                  Статус: закрыта
+                  <button
+                    type="button"
+                    className="dashboard-page__shift-open-button"
+                    onClick={() => openShiftModal('open')}
+                  >
+                    🔓 Открыть смену сейчас
+                  </button>
+                </>
+              )}
+              {shift.isOpen ? (
+                <Button
+                  className="dashboard-page__shift-action"
+                  onClick={() => openShiftModal('close')}
                 >
-                  🔓 Открыть смену сейчас
-                </button>
-              </>
-            )}
-            {shift.isOpen ? (
-              <Button
-                className="dashboard-page__shift-action"
-                onClick={() => openShiftModal('close')}
-              >
-                🔒 Закрыть смену
-              </Button>
-            ) : null}
-          </p>
+                  🔒 Закрыть смену
+                </Button>
+              ) : null}
+            </p>
+          ) : null}
         </div>
 
         <div className="dashboard-page__actions">
@@ -281,21 +287,22 @@ function DashboardPage() {
           >
             Найти клиента
           </Button>
-          {shift.isOpen ? (
+          {isManager && shift.isOpen ? (
             <Button
               className="dashboard-page__action--secondary"
               onClick={() => openShiftModal('close')}
             >
               🔒 Закрыть смену
             </Button>
-          ) : (
+          ) : null}
+          {isManager && !shift.isOpen ? (
             <Button
               className="dashboard-page__action--secondary"
               onClick={() => openShiftModal('open')}
             >
               🔓 Открыть смену
             </Button>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -543,9 +550,12 @@ function DashboardPage() {
       />
 
       <ShiftModal
+        // key меняется только при открытии/закрытии или смене мода —
+        // во время ввода в форме он стабилен (не пересоздаёт компонент).
         key={shiftModal.open ? shiftModal.mode : 'closed'}
         open={shiftModal.open}
         mode={shiftModal.mode}
+        shift={shift}
         onClose={() => setShiftModal({ open: false, mode: 'open' })}
         onSaved={refreshSummary}
       />
