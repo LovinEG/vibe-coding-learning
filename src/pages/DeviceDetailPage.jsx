@@ -10,9 +10,13 @@ import './Page.css'
 // Бейдж статуса ремонта (цвета как в карточке заказа).
 const REPAIR_STATUS_BADGES = {
   Новый: 'device-detail-page__order-badge--new',
+  Диагностика: 'device-detail-page__order-badge--diagnostics',
   'В работе': 'device-detail-page__order-badge--in-work',
   'Ожидает деталь': 'device-detail-page__order-badge--waiting',
   'Готово к выдаче': 'device-detail-page__order-badge--ready',
+  Закрыт: 'device-detail-page__order-badge--closed',
+  Отменён: 'device-detail-page__order-badge--cancelled',
+  // Легаси-статус: остался только для отображения старых заказов.
   Выдан: 'device-detail-page__order-badge--issued',
 }
 

@@ -141,3 +141,22 @@
   border-color: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
   color: var(--color-text-secondary);
 }
+
+/* Легаси «Выдан» (--done) выше; ниже — новые статусы. */
+.status-dropdown__badge--diagnostics {
+  background: #fef3c7;
+  border-color: color-mix(in srgb, #d97706 30%, transparent);
+  color: #b45309;
+}
+
+.status-dropdown__badge--closed {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
+}
+
+.status-dropdown__badge--cancelled {
+  background: #fbe5e5;
+  border-color: color-mix(in srgb, #c0392b 30%, transparent);
+  color: #c0392b;
+}

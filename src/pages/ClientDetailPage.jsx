@@ -19,9 +19,13 @@ const TABS = [
 // Бейдж статуса заказа (цвета как в карточке заказа).
 const ORDER_STATUS_BADGES = {
   Новый: 'client-detail-page__order-badge--new',
+  Диагностика: 'client-detail-page__order-badge--diagnostics',
   'В работе': 'client-detail-page__order-badge--in-work',
   'Ожидает деталь': 'client-detail-page__order-badge--waiting',
   'Готово к выдаче': 'client-detail-page__order-badge--ready',
+  Закрыт: 'client-detail-page__order-badge--closed',
+  Отменён: 'client-detail-page__order-badge--cancelled',
+  // Легаси-статус: остался только для отображения старых заказов.
   Выдан: 'client-detail-page__order-badge--issued',
 }
 

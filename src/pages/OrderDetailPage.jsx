@@ -21,9 +21,13 @@ import './Page.css'
 
 const STATUS_BADGES = {
   Новый: 'order-detail-page__status-badge--new',
+  Диагностика: 'order-detail-page__status-badge--diagnostics',
   'В работе': 'order-detail-page__status-badge--in-work',
   'Ожидает деталь': 'order-detail-page__status-badge--waiting',
   'Готово к выдаче': 'order-detail-page__status-badge--ready',
+  Закрыт: 'order-detail-page__status-badge--closed',
+  Отменён: 'order-detail-page__status-badge--cancelled',
+  // Легаси-статус: остался только для отображения старых заказов.
   Выдан: 'order-detail-page__status-badge--issued',
 }
 

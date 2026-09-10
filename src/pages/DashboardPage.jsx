@@ -17,9 +17,13 @@ import './Page.css'
 
 const STATUS_BADGES = {
   Новый: 'dashboard-page__status-badge--new',
+  Диагностика: 'dashboard-page__status-badge--diagnostics',
   'В работе': 'dashboard-page__status-badge--in-work',
   'Ожидает деталь': 'dashboard-page__status-badge--waiting',
   'Готово к выдаче': 'dashboard-page__status-badge--ready',
+  Закрыт: 'dashboard-page__status-badge--closed',
+  Отменён: 'dashboard-page__status-badge--cancelled',
+  // Легаси-статус: остался только для отображения старых заказов.
   Выдан: 'dashboard-page__status-badge--issued',
 }
 

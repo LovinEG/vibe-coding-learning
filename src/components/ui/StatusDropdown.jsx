@@ -1,13 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import './StatusDropdown.css'
 
-const OPTIONS = ['Новый', 'В работе', 'Ожидает деталь', 'Готово к выдаче', 'Выдан']
+// «Выдан» удалён из выбора: новые заказы закрываются статусом «Закрыт».
+// Старые заказы со статусом «Выдан» продолжают отображаться (см. бейджи ниже).
+const OPTIONS = [
+  'Новый',
+  'Диагностика',
+  'В работе',
+  'Ожидает деталь',
+  'Готово к выдаче',
+  'Закрыт',
+  'Отменён',
+]
 
 const BADGE_CLASS_NAMES = {
   Новый: 'status-dropdown__badge--new',
+  Диагностика: 'status-dropdown__badge--diagnostics',
   'В работе': 'status-dropdown__badge--in-work',
   'Ожидает деталь': 'status-dropdown__badge--waiting',
   'Готово к выдаче': 'status-dropdown__badge--ready',
+  Закрыт: 'status-dropdown__badge--closed',
+  Отменён: 'status-dropdown__badge--cancelled',
+  // Легаси-статус: остался только для отображения старых заказов.
   Выдан: 'status-dropdown__badge--done',
 }
 
