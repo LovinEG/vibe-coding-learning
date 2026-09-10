@@ -17,6 +17,12 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: 'transfer', label: 'Перевод' },
 ]
 
+// Защита от двойной оплаты: приходный платёж, привязанный к заказу,
+// проводится только через RPC close_order (кнопка «Оплатить и закрыть»
+// на странице заказа). Ручной income с order_id запрещён.
+const ORDER_INCOME_BLOCKED_MESSAGE =
+  'Оплата заказа проводится только через «Оплатить и закрыть» на странице заказа'
+
 const emptyForm = {
   type: 'income',
   cashRegisterId: '',
@@ -83,12 +89,18 @@ function PaymentModal({ open, onClose, onSaved }) {
     return null
   }
 
+  const isOrderIncomeBlocked = form.type === 'income' && form.orderId !== ''
+
   function handleChange(event) {
     const { name, value } = event.target
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
   function validate() {
+    if (form.type === 'income' && form.orderId) {
+      return ORDER_INCOME_BLOCKED_MESSAGE
+    }
+
     if (!form.cashRegisterId) {
       return 'Выберите кассу'
     }
@@ -275,6 +287,12 @@ function PaymentModal({ open, onClose, onSaved }) {
             </label>
           </div>
 
+          {isOrderIncomeBlocked ? (
+            <p className="payment-modal__hint payment-modal__hint--error">
+              {ORDER_INCOME_BLOCKED_MESSAGE}
+            </p>
+          ) : null}
+
           <label className="payment-modal__field">
             <span className="payment-modal__label">Комментарий</span>
             <textarea
@@ -308,7 +326,10 @@ function PaymentModal({ open, onClose, onSaved }) {
             >
               Отмена
             </Button>
-            <Button type="submit" disabled={submitting || optionsLoading}>
+            <Button
+              type="submit"
+              disabled={submitting || optionsLoading || isOrderIncomeBlocked}
+            >
               {submitting ? 'Проведение...' : 'Провести платеж'}
             </Button>
           </div>
