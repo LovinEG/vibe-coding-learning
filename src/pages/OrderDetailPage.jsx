@@ -93,8 +93,9 @@ function OrderDetailPage() {
   const [error, setError] = useState(null)
   const [lightboxUrl, setLightboxUrl] = useState(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
-  // Заглушка действия «Оплатить и закрыть» (только UI, без кассы и статуса).
+  // Действие «Оплатить и закрыть» (RPC close_order).
   const [payCloseModalOpen, setPayCloseModalOpen] = useState(false)
+  const [closeSuccess, setCloseSuccess] = useState(false)
 
   // Редактор диагностики.
   const [diagnosticEditing, setDiagnosticEditing] = useState(false)
@@ -502,6 +503,15 @@ function OrderDetailPage() {
           </Button>
         ) : null}
       </div>
+
+      {closeSuccess ? (
+        <p
+          className="order-detail-page__alert order-detail-page__alert--success"
+          role="status"
+        >
+          ✅ Заказ закрыт: оплата проведена, касса обновлена.
+        </p>
+      ) : null}
 
       {/* Шапка-клипборд: номер, статус, мастер, стоимость */}
       <Card className="order-detail-page__clipboard">
@@ -1134,6 +1144,12 @@ function OrderDetailPage() {
         <CloseOrderModal
           order={order}
           onClose={() => setPayCloseModalOpen(false)}
+          onClosed={() => {
+            // Перезагружаем заказ с сервера: RPC уже изменил статус,
+            // оплату и историю — локально вручную ничего не правим.
+            setCloseSuccess(true)
+            loadOrder()
+          }}
         />
       ) : null}
 

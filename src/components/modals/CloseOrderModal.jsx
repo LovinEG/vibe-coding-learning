@@ -1,26 +1,31 @@
 import { useEffect, useState } from 'react'
+import { supabase } from '../../lib/supabase'
 import { getCashRegisters } from '../../data/cashRegisters'
 import { formatPrice } from '../../lib/format'
 import Button from '../ui/Button'
 import './CloseOrderModal.css'
 
 const PAYMENT_METHOD_OPTIONS = [
-  { value: 'Наличные', label: 'Наличные' },
-  { value: 'Карта', label: 'Карта' },
-  { value: 'Перевод', label: 'Перевод' },
+  { value: 'cash', label: 'Наличные' },
+  { value: 'card', label: 'Карта' },
+  { value: 'transfer', label: 'Перевод' },
 ]
 
 // Форма действия «Оплатить и закрыть» на странице заказа.
-// Пока ничего не записывает в Supabase, не меняет баланс кассы
-// и статус заказа — только UI с валидацией (заготовка под оплату).
-function CloseOrderModal({ order, onClose }) {
+// Подтверждение вызывает Supabase RPC close_order(p_order_id,
+// p_cash_register_id, p_amount, p_payment_method) — он сам создаёт
+// income-платёж (триггер обновляет баланс кассы), меняет статус заказа
+// на «Закрыт», пишет closed_at и событие 'closed' в историю. Отдельные
+// payment/cash operation на фронтенде не создаются.
+function CloseOrderModal({ order, onClose, onClosed }) {
   const [form, setForm] = useState({
     amount: order?.price != null && order.price !== '' ? String(order.price) : '',
-    method: 'Наличные',
+    method: 'cash',
     cashRegisterId: '',
   })
   const [cashRegisters, setCashRegisters] = useState([])
   const [optionsLoading, setOptionsLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -76,7 +81,7 @@ function CloseOrderModal({ order, onClose }) {
     return ''
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
 
     const validationError = validate()
@@ -86,10 +91,32 @@ function CloseOrderModal({ order, onClose }) {
       return
     }
 
-    // Пока без записи в Supabase: проведение оплаты и закрытие заказа
-    // будут добавлены следующим шагом.
-    setError('')
-    onClose()
+    setSubmitting(true)
+
+    try {
+      const { error: rpcError } = await supabase.rpc('close_order', {
+        p_order_id: order.id,
+        p_cash_register_id: form.cashRegisterId,
+        p_amount: Number(form.amount),
+        p_payment_method: form.method,
+      })
+
+      if (rpcError) {
+        throw rpcError
+      }
+
+      // Успех: сообщаем странице (перезагрузит заказ + покажет баннер)
+      // и закрываем модалку. Статус локально вручную не меняем.
+      onClosed?.()
+      onClose()
+    } catch (err) {
+      // Ошибка RPC: модалку не закрываем, статус не меняем —
+      // показываем понятный текст ошибки пользователю.
+      console.error('Не удалось закрыть заказ:', err)
+      setError(err.message ?? 'Не удалось закрыть заказ. Попробуйте ещё раз.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -184,7 +211,9 @@ function CloseOrderModal({ order, onClose }) {
           ) : null}
 
           <div className="close-order-modal__actions">
-            <Button type="submit">Оплатить и закрыть</Button>
+            <Button type="submit" disabled={submitting || optionsLoading}>
+              {submitting ? 'Оплата...' : 'Оплатить и закрыть'}
+            </Button>
           </div>
         </form>
       </div>

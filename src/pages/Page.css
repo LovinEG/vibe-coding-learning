@@ -4299,6 +4299,13 @@
   font-size: 13px;
 }
 
+/* Успешное закрытие заказа (RPC close_order). */
+.order-detail-page__alert--success {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  color: var(--color-accent);
+}
+
 
 /* ---------- OrdersPage: действия, панель фильтров, просрочка (ШАГ 3.4) ---------- */
 
