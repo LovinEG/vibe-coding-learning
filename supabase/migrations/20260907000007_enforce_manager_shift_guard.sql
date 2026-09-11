@@ -27,17 +27,21 @@
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- 1. Хелпер-предикат guard для write-политик.
---    true для admin/user/technician (и ролей без профиля — они не manager);
---    для manager — только can_perform_work_operation().
+-- 1. Хелпер-предикат guard для write-политик. FAIL-CLOSED:
+--    NULL/неизвестная роль → false. admin/user/technician — true
+--    (shift restriction к ним не применяется); manager — только
+--    can_perform_work_operation(). НЕ заменяет permission/RBAC —
+--    в политиках комбинируется с has_permission(...).
 -- ---------------------------------------------------------------------
 create or replace function public.work_shift_write_allowed()
 returns boolean
 language sql
 stable
 as $$
-  select public.current_role_code() is distinct from 'manager'
-     or public.can_perform_work_operation();
+  select (
+    public.current_role_code() is not null
+    and public.current_role_code() <> 'manager'
+  ) or public.can_perform_work_operation();
 $$;
 
 grant execute on function public.work_shift_write_allowed() to authenticated;
@@ -54,40 +58,76 @@ drop policy if exists "Allow authenticated to read orders" on public.orders;
 create policy "Allow authenticated to read orders"
   on public.orders for select to authenticated using (true);
 
+-- INSERT: право orders.create + shift guard (manager — только в смене
+-- и в рабочем окне; technician — нет orders.create).
 drop policy if exists "Allow authenticated to insert orders" on public.orders;
 create policy "Allow authenticated to insert orders"
   on public.orders for insert to authenticated
-  with check (public.work_shift_write_allowed());
+  with check (
+    public.has_permission('orders.create')
+    and public.work_shift_write_allowed()
+  );
 
+-- UPDATE: право orders.edit + shift guard (user/technician — нет orders.edit).
 drop policy if exists "Allow authenticated to update orders" on public.orders;
 create policy "Allow authenticated to update orders"
   on public.orders for update to authenticated
-  using (public.work_shift_write_allowed())
-  with check (public.work_shift_write_allowed());
+  using (
+    public.has_permission('orders.edit')
+    and public.work_shift_write_allowed()
+  )
+  with check (
+    public.has_permission('orders.edit')
+    and public.work_shift_write_allowed()
+  );
 
+-- DELETE: только admin (orders.delete есть только у admin; guard-хелпер
+-- не используется как замена delete-permission).
 drop policy if exists "Allow authenticated to delete orders" on public.orders;
-create policy "Allow authenticated to delete orders"
+create policy "Allow admins to delete orders"
   on public.orders for delete to authenticated
-  using (public.work_shift_write_allowed());
+  using (public.is_admin());
 
 -- ---------------------------------------------------------------------
 -- 3. clients / devices: открытые «public» политики (включая anon)
 --    заменены на authenticated + shift guard.
+--    devices: менеджер создаёт/привязывает устройства в рамках приёмки
+--    заказа/клиента (DeviceModal в order/client flow), отдельного
+--    permission-кода на devices в модели RBAC нет → write оставлен
+--    authenticated + work_shift_write_allowed() (manager — только в
+--    смене; user/technician сохраняют историческую возможность, как в
+--    применённой БД). Расширения прав нет.
 -- ---------------------------------------------------------------------
 drop policy if exists "Allow public access to clients" on public.clients;
 drop policy if exists "Allow authenticated to read clients" on public.clients;
 create policy "Allow authenticated to read clients"
   on public.clients for select to authenticated using (true);
+
+-- INSERT: право clients.create + shift guard.
 create policy "Allow authenticated to insert clients"
   on public.clients for insert to authenticated
-  with check (public.work_shift_write_allowed());
+  with check (
+    public.has_permission('clients.create')
+    and public.work_shift_write_allowed()
+  );
+
+-- UPDATE: право clients.edit + shift guard
+-- (user/technician — clients.edit не имеют).
 create policy "Allow authenticated to update clients"
   on public.clients for update to authenticated
-  using (public.work_shift_write_allowed())
-  with check (public.work_shift_write_allowed());
-create policy "Allow authenticated to delete clients"
+  using (
+    public.has_permission('clients.edit')
+    and public.work_shift_write_allowed()
+  )
+  with check (
+    public.has_permission('clients.edit')
+    and public.work_shift_write_allowed()
+  );
+
+-- DELETE: только admin (clients.delete есть только у admin).
+create policy "Allow admins to delete clients"
   on public.clients for delete to authenticated
-  using (public.work_shift_write_allowed());
+  using (public.is_admin());
 
 drop policy if exists "Allow public access to devices" on public.devices;
 drop policy if exists "Allow authenticated to read devices" on public.devices;
@@ -107,6 +147,12 @@ create policy "Allow authenticated to delete devices"
 -- ---------------------------------------------------------------------
 -- 4. order_services: политика «manage for all using (true)» заменена
 --    на write-политики со shift guard (чтение сохранено).
+--    Решение: добавление/удаление работ — часть flow manager по заказу
+--    (OrderDetailPage, право orders.edit на фронте); отдельного
+--    permission-кода на order_services в модели RBAC нет → write
+--    оставлен authenticated + work_shift_write_allowed() (manager —
+--    только в смене; user/technician сохраняют историческую
+--    возможность). Расширения прав нет.
 -- ---------------------------------------------------------------------
 drop policy if exists "Allow authenticated to manage order services"
   on public.order_services;
@@ -122,9 +168,12 @@ create policy "Allow authenticated to delete order services"
   using (public.work_shift_write_allowed());
 
 -- ---------------------------------------------------------------------
--- 5. order_status_history: insert-политика получает shift guard
---    (события логируются фронтендом; RPC close_order вставляет через
---    security definer и guard'ом RLS не ограничен).
+-- 5. order_status_history: insert-политика получает shift guard.
+--    Решение: события part_added/service_added пишет фронтенд как часть
+--    order flow manager (logOrderEvent) → insert оставлен authenticated
+--    + work_shift_write_allowed() (manager — только в смене). RPC
+--    close_order вставляет через security definer и RLS-политикой не
+--    ограничен. Расширения прав нет.
 -- ---------------------------------------------------------------------
 drop policy if exists "Allow authenticated to insert order status history"
   on public.order_status_history;
