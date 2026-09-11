@@ -206,7 +206,7 @@ create policy "Allow task managers to write tasks"
 --    без смены. RLS на payments/order_status_history внутри
 --    security definer не применяется (как и раньше).
 -- ---------------------------------------------------------------------
-drop function if exists public.close_order(uuid, numeric, uuid, text);
+drop function if exists public.close_order(uuid, uuid, numeric, text);
 
 create or replace function public.close_order(
   p_order_id         uuid,
@@ -339,5 +339,5 @@ begin
 end;
 $$;
 
-grant execute on function public.close_order(uuid, numeric, uuid, text) to authenticated;
-revoke execute on function public.close_order(uuid, numeric, uuid, text) from anon;
+grant execute on function public.close_order(uuid, uuid, numeric, text) to authenticated;
+revoke execute on function public.close_order(uuid, uuid, numeric, text) from anon;
