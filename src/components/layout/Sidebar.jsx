@@ -71,22 +71,31 @@ function Sidebar({ isOpen, onNavigate }) {
     'iam.manage': usePermission('iam.manage'),
   }
 
-  // Навигационный UX-фильтр по роли: менеджеру не показываются
-  // «Финансовый отчёт» и весь раздел «Аналитика» (admin/user/technician —
-  // как раньше). Route /ai-assistant при прямом переходе по URL не
-  // блокируется, права и БД не затрагиваются.
+  // Навигационный UX-фильтр по роли: manager — «менеджер приёмки».
+  // Ему оставлены только: Дашборд, Заказы, Клиенты, Устройства, Задачи,
+  // Кассы, Оплаты. Скрыты: весь раздел «Склад», «Операции», «Финансовый
+  // отчёт», весь раздел «Аналитика» и «Команда» (admin/user/technician —
+  // как раньше). Прямой доступ по URL не блокируется, права и БД не
+  // затрагиваются.
   const { profile } = useAuth()
   const isManager = profile?.roles?.code === 'manager'
+  const MANAGER_SECTIONS = ['Главное', 'Обслуживание', 'Финансы']
+  const MANAGER_HIDDEN_FINANCE_ITEMS = ['/operations', '/transactions']
 
   const visibleSections = NAV_SECTIONS.map((section) => {
-    if (isManager && section.title === 'Аналитика') {
+    if (isManager && !MANAGER_SECTIONS.includes(section.title)) {
       return { ...section, items: [] }
     }
 
     return {
       ...section,
       items: section.items.filter(
-        (item) => !(isManager && item.to === '/transactions'),
+        (item) =>
+          !(
+            isManager &&
+            section.title === 'Финансы' &&
+            MANAGER_HIDDEN_FINANCE_ITEMS.includes(item.to)
+          ),
       ),
     }
   }).filter(
