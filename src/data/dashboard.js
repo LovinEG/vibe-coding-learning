@@ -104,6 +104,10 @@ export async function getDashboardSummary() {
   )
   const awaitingParts = orders.filter((order) => order.status === 'Ожидает деталь')
 
+  // Карточки менеджера приёмки: «Новые» и «Готовы к выдаче».
+  const newOrders = orders.filter((order) => order.status === 'Новый')
+  const readyForPickup = orders.filter((order) => order.status === 'Готово к выдаче')
+
   const incomePayments = payments.filter((payment) => payment.type === 'income')
 
   // «Закрыто сегодня» — по orders.closed_at (пишет RPC close_order).
@@ -157,6 +161,8 @@ export async function getDashboardSummary() {
       closedToday,
       awaitingApproval: awaitingApproval.length,
       awaitingParts: awaitingParts.length,
+      newOrders: newOrders.length,
+      readyForPickup: readyForPickup.length,
       shiftRevenue,
       cashTotal,
     },
@@ -370,6 +376,66 @@ export function buildActionItems({
   }
 
   return items.slice(0, 8)
+}
+
+// Блок «Требуют внимания» менеджера приёмки: активные заказы в
+// приоритетном порядке, каждый заказ показывается ОДИН раз по самому
+// высокому приоритету:
+//   1) просрочен (SLA 4 дня, OVERDUE_ORDER_STATUSES),
+//   2) ожидает согласования клиента,
+//   3) срок сегодня (accepted_at + SLA, deadline в схеме отсутствует),
+//   4) готов к выдаче,
+//   5) новый.
+// Максимум 8 строк. Reuses isOverdueOrder/REPAIR_SLA_DAYS — логика
+// просрочки не дублируется.
+export function buildManagerAttentionOrders(activeOrders, now = new Date()) {
+  const taken = new Set()
+  const rows = []
+
+  const addGroup = (orders, reason) => {
+    for (const order of orders) {
+      if (taken.has(order.id)) {
+        continue
+      }
+
+      taken.add(order.id)
+      rows.push({ order, reason })
+    }
+  }
+
+  addGroup(
+    activeOrders.filter((order) => isOverdueOrder(order, now)),
+    '⏰ Просрочен ремонт (SLA 4 дня)',
+  )
+
+  addGroup(
+    activeOrders.filter((order) => order.approvalStatus === 'pending'),
+    '📤 Ожидает согласования клиента',
+  )
+
+  addGroup(
+    activeOrders.filter((order) => {
+      if (!order.acceptedAt) {
+        return false
+      }
+
+      const slaDeadline = addDays(new Date(order.acceptedAt), REPAIR_SLA_DAYS)
+      return slaDeadline >= startOfDay(now) && slaDeadline < addDays(startOfDay(now), 1)
+    }),
+    '📅 Срок сегодня',
+  )
+
+  addGroup(
+    activeOrders.filter((order) => order.status === 'Готово к выдаче'),
+    '✅ Готов к выдаче',
+  )
+
+  addGroup(
+    activeOrders.filter((order) => order.status === 'Новый'),
+    '🆕 Новый — начать диагностику',
+  )
+
+  return rows.slice(0, 8)
 }
 
 function formatDay(value) {

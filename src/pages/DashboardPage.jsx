@@ -5,6 +5,7 @@ import {
   buildActionItems,
   buildFinanceSummary,
   buildStockWarnings,
+  buildManagerAttentionOrders,
 } from '../data/dashboard'
 import { isOverdueOrder } from '../data/orders'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
@@ -127,6 +128,16 @@ function DashboardPage() {
     )
   }, [summary, now])
 
+  // Блок «Требуют внимания» менеджера приёмки (приоритезация внутри
+  // buildManagerAttentionOrders; переиспользует overdue-логику orders.js).
+  const managerAttention = useMemo(() => {
+    if (!summary) {
+      return []
+    }
+
+    return buildManagerAttentionOrders(summary.orders.active, now)
+  }, [summary, now])
+
   // Таблица активных заказов: фильтр + живой поиск.
   const visibleOrders = useMemo(() => {
     if (!summary) {
@@ -245,6 +256,36 @@ function DashboardPage() {
     },
   ]
 
+  // KPI менеджера приёмки (role-based rendering, admin — как раньше).
+  const managerMetricCards = [
+    {
+      label: 'Новые',
+      value: String(metrics.newOrders),
+      to: '/orders?status=new',
+      accent: metrics.newOrders > 0,
+    },
+    {
+      label: 'На согласовании',
+      value: String(metrics.awaitingApproval),
+      to: '/orders?approval=pending',
+      accent: metrics.awaitingApproval > 0,
+    },
+    {
+      label: 'Просрочены',
+      value: String(metrics.overdueOrders),
+      to: '/orders?overdue=true',
+      accent: metrics.overdueOrders > 0,
+    },
+    {
+      label: 'Готовы к выдаче',
+      value: String(metrics.readyForPickup),
+      to: '/orders?status=ready',
+      accent: metrics.readyForPickup > 0,
+    },
+  ]
+
+  const visibleMetricCards = isManager ? managerMetricCards : metricCards
+
   return (
     <div className="page dashboard-page">
       <header className="dashboard-page__header">
@@ -254,6 +295,7 @@ function DashboardPage() {
           </h1>
           {isManager ? (
             <p className="dashboard-page__shift">
+              Рабочее время: 11:00–17:30 ·{' '}
               {shift.isOpen ? (
                 <>
                   <span className="dashboard-page__shift-dot" aria-hidden="true" />
@@ -262,7 +304,7 @@ function DashboardPage() {
                 </>
               ) : (
                 <>
-                  Статус: закрыта
+                  Статус: не открыта
                   <button
                     type="button"
                     className="dashboard-page__shift-open-button"
@@ -285,12 +327,21 @@ function DashboardPage() {
         </div>
 
         <div className="dashboard-page__actions">
-          <Button
-            onClick={() => setIsCreateOpen(true)}
-            disabled={workShift.blocked}
-          >
-            + Новый заказ
-          </Button>
+          {isManager ? (
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              disabled={workShift.blocked}
+            >
+              + Принять устройство
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              disabled={workShift.blocked}
+            >
+              + Новый заказ
+            </Button>
+          )}
           <Button
             className="dashboard-page__action--secondary"
             onClick={() => go('/clients')}
@@ -319,7 +370,7 @@ function DashboardPage() {
       <WorkShiftBanner />
 
       <div className="dashboard-page__metrics">
-        {metricCards.map((card) => (
+        {visibleMetricCards.map((card) => (
           <button
             key={card.label}
             type="button"
@@ -335,38 +386,76 @@ function DashboardPage() {
       </div>
 
       <div className="dashboard-page__content">
-        <Card className="dashboard-page__panel">
-          <h2 className="dashboard-page__panel-title">Важные задачи</h2>
-          {actionItems.length === 0 ? (
-            <p className="dashboard-page__empty">
-              Все под контролем — требующих внимания событий нет.
-            </p>
-          ) : (
-            <ul className="dashboard-page__action-list">
-              {actionItems.map((item) => (
-                <li key={item.id} className="dashboard-page__action">
-                  <span className="dashboard-page__action-icon" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span className="dashboard-page__action-body">
-                    <span className="dashboard-page__action-title">{item.title}</span>
-                    <span className="dashboard-page__action-desc">
-                      {item.description}
+        {isManager ? (
+          /* Менеджер приёмки: заказы, требующие внимания (приоритет —
+             внутри buildManagerAttentionOrders; финансы/склад скрыты). */
+          <Card className="dashboard-page__panel">
+            <h2 className="dashboard-page__panel-title">Требуют внимания</h2>
+            {managerAttention.length === 0 ? (
+              <p className="dashboard-page__empty">
+                Нет заказов, требующих внимания.
+              </p>
+            ) : (
+              <ul className="dashboard-page__action-list">
+                {managerAttention.map(({ order, reason }) => (
+                  <li key={order.id} className="dashboard-page__action">
+                    <span className="dashboard-page__action-icon" aria-hidden="true">
+                      {reason.split(' ')[0]}
                     </span>
-                  </span>
-                  <Button
-                    className="dashboard-page__action-button"
-                    onClick={() => go(item.to)}
-                  >
-                    {item.actionLabel}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+                    <span className="dashboard-page__action-body">
+                      <span className="dashboard-page__action-title">
+                        Заказ {order.orderNumber} · {order.client ?? '—'}
+                      </span>
+                      <span className="dashboard-page__action-desc">
+                        {order.device ?? '—'} · {reason}
+                      </span>
+                    </span>
+                    <Button
+                      className="dashboard-page__action-button"
+                      onClick={() => go(`/orders/${order.id}`)}
+                    >
+                      Открыть
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        ) : (
+          <Card className="dashboard-page__panel">
+            <h2 className="dashboard-page__panel-title">Важные задачи</h2>
+            {actionItems.length === 0 ? (
+              <p className="dashboard-page__empty">
+                Все под контролем — требующих внимания событий нет.
+              </p>
+            ) : (
+              <ul className="dashboard-page__action-list">
+                {actionItems.map((item) => (
+                  <li key={item.id} className="dashboard-page__action">
+                    <span className="dashboard-page__action-icon" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className="dashboard-page__action-body">
+                      <span className="dashboard-page__action-title">{item.title}</span>
+                      <span className="dashboard-page__action-desc">
+                        {item.description}
+                      </span>
+                    </span>
+                    <Button
+                      className="dashboard-page__action-button"
+                      onClick={() => go(item.to)}
+                    >
+                      {item.actionLabel}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
 
-        <div className="dashboard-page__side">
+        {!isManager ? (
+          <div className="dashboard-page__side">
           <Card className="dashboard-page__panel">
             <h2 className="dashboard-page__panel-title">
               Складские предупреждения
@@ -461,7 +550,8 @@ function DashboardPage() {
               </div>
             </div>
           </Card>
-        </div>
+          </div>
+        ) : null}
       </div>
 
 
