@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../../lib/useAuth'
 import { usePermission } from '../../lib/usePermission'
 import './Sidebar.css'
 
@@ -70,9 +71,18 @@ function Sidebar({ isOpen, onNavigate }) {
     'iam.manage': usePermission('iam.manage'),
   }
 
-  const visibleSections = NAV_SECTIONS.filter(
-    (section) => !section.permission || permissions[section.permission],
-  )
+  // Навигационный UX-фильтр по роли: пункт «Финансовый отчёт» не показывается
+  // менеджеру (admin/user/technician — как раньше). Route /transactions при
+  // прямом переходе по URL не блокируется, права и БД не затрагиваются.
+  const { profile } = useAuth()
+  const isManager = profile?.roles?.code === 'manager'
+
+  const visibleSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter(
+      (item) => !(isManager && item.to === '/transactions'),
+    ),
+  })).filter((section) => !section.permission || permissions[section.permission])
 
   return (
     <aside
