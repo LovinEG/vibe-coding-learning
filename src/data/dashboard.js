@@ -1,6 +1,7 @@
 import {
   getOrders,
   OVERDUE_ORDER_STATUSES,
+  getOrderDeadline,
 } from './orders'
 import { getParts } from './inventory'
 import { getCashRegisters } from './cashRegisters'
@@ -10,9 +11,8 @@ import { getOpenShift } from './shifts'
 import { getStockBatches } from './stockBatches'
 import { supabase } from '../lib/supabase'
 
-// Срок ремонта по умолчанию: в схеме orders нет поля deadline, поэтому
-// просрочка и расчётный срок считаются от даты приёма (4 календарных дня).
-const REPAIR_SLA_DAYS = 4
+// Срок ремонта по умолчанию (fallback) живёт в orders.js
+// (OVERDUE_SLA_DAYS = 4 внутри getOrderDeadline).
 
 function startOfDay(date) {
   const copy = new Date(date)
@@ -57,13 +57,16 @@ function isActiveOrder(order) {
   return ACTIVE_STATUSES.includes(order.status)
 }
 
+// Единая логика дедлайна/просрочки из orders.js: deadline_at либо
+// fallback SLA 4 дня. Дедлайн заданный учитывается.
 function isOverdueOrder(order, now) {
-  if (!OVERDUE_STATUSES.includes(order.status) || !order.acceptedAt) {
+  if (!OVERDUE_STATUSES.includes(order.status)) {
     return false
   }
 
-  const slaDeadline = addDays(new Date(order.acceptedAt), REPAIR_SLA_DAYS)
-  return slaDeadline < now
+  const deadline = getOrderDeadline(order)
+
+  return deadline !== null && deadline < now
 }
 
 // Единый агрегатор данных для командного дашборда. Все источники читаются
@@ -415,12 +418,15 @@ export function buildManagerAttentionOrders(activeOrders, now = new Date()) {
 
   addGroup(
     activeOrders.filter((order) => {
-      if (!order.acceptedAt) {
+      // Дедлайн: deadline_at либо fallback SLA — getOrderDeadline из
+      // orders.js (бизнес-логика дедлайна не дублируется).
+      const deadline = getOrderDeadline(order)
+
+      if (deadline === null) {
         return false
       }
 
-      const slaDeadline = addDays(new Date(order.acceptedAt), REPAIR_SLA_DAYS)
-      return slaDeadline >= startOfDay(now) && slaDeadline < addDays(startOfDay(now), 1)
+      return deadline >= startOfDay(now) && deadline < addDays(startOfDay(now), 1)
     }),
     '📅 Срок сегодня',
   )

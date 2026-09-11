@@ -169,6 +169,23 @@ function mapHistoryRow(row) {
   }
 }
 
+// Фактический дедлайн заказа: заданный deadline_at, иначе fallback —
+// SLA (OVERDUE_SLA_DAYS) от даты приёма. null, если дедлайн определить
+// нельзя. Единая точка правды для просрочки и «срока сегодня».
+export function getOrderDeadline(order) {
+  if (order.deadlineAt) {
+    return new Date(order.deadlineAt)
+  }
+
+  if (!order.acceptedAt) {
+    return null
+  }
+
+  const slaDeadline = new Date(order.acceptedAt)
+  slaDeadline.setDate(slaDeadline.getDate() + OVERDUE_SLA_DAYS)
+  return slaDeadline
+}
+
 // Просрочен ли заказ: статус из SLA-списка (без «Готово к выдаче») и
 // (deadline_at < now либо, при незаданном сроке, приём старше SLA).
 export function isOverdueOrder(order, now = new Date()) {
@@ -176,17 +193,9 @@ export function isOverdueOrder(order, now = new Date()) {
     return false
   }
 
-  if (order.deadlineAt) {
-    return new Date(order.deadlineAt) < now
-  }
+  const deadline = getOrderDeadline(order)
 
-  if (!order.acceptedAt) {
-    return false
-  }
-
-  const slaDeadline = new Date(order.acceptedAt)
-  slaDeadline.setDate(slaDeadline.getDate() + OVERDUE_SLA_DAYS)
-  return slaDeadline < now
+  return deadline !== null && deadline < now
 }
 
 // Список заказов с серверными фильтрами и мульти-поиском.
