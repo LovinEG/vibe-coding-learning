@@ -7,6 +7,7 @@ function mapShift(row) {
   return {
     id: row.id,
     cashRegisterId: row.cash_register_id,
+    cashRegisterName: row.cash_registers?.name ?? '—',
     openedBy: row.opened_by,
     openedAt: row.opened_at,
     openingBalance: Number(row.opening_balance) || 0,
@@ -23,7 +24,9 @@ export async function getOpenShift(userId) {
 
   const { data, error } = await supabase
     .from('shifts')
-    .select('id, cash_register_id, opened_by, opened_at, opening_balance, status')
+    .select(
+      'id, cash_register_id, cash_registers(name), opened_by, opened_at, opening_balance, status',
+    )
     .eq('opened_by', userId)
     .eq('status', 'open')
     .maybeSingle()

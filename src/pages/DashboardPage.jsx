@@ -385,6 +385,41 @@ function DashboardPage() {
         ))}
       </div>
 
+      {/* Касса текущей смены — только manager с открытой сменой.
+          Snapshot-данные из public.shifts + наличные оплаты заказов
+          по кассе смены (RPC баланс кассы не меняет, snapshots). */}
+      {isManager && shift.cash ? (
+        <Card className="dashboard-page__panel">
+          <h2 className="dashboard-page__panel-title">Касса текущей смены</h2>
+          <div className="dashboard-page__finance">
+            <div className="dashboard-page__finance-row">
+              <span>Касса</span>
+              <span className="dashboard-page__finance-value">
+                {shift.cash.cashRegisterName}
+              </span>
+            </div>
+            <div className="dashboard-page__finance-row">
+              <span>Остаток при открытии</span>
+              <span className="dashboard-page__finance-value">
+                {formatCurrency(shift.cash.openingBalance)}
+              </span>
+            </div>
+            <div className="dashboard-page__finance-row">
+              <span>Принято наличными за смену</span>
+              <span className="dashboard-page__finance-value">
+                +{formatCurrency(shift.cash.cashCollected)}
+              </span>
+            </div>
+            <div className="dashboard-page__finance-row dashboard-page__finance-row--receivables">
+              <span>Ожидаемый остаток</span>
+              <span className="dashboard-page__finance-value">
+                {formatCurrency(shift.cash.expectedBalance)}
+              </span>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
       <div className="dashboard-page__content">
         {isManager ? (
           /* Менеджер приёмки: заказы, требующие внимания (приоритет —

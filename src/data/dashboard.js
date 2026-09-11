@@ -150,6 +150,36 @@ export async function getDashboardSummary() {
     (sum, payment) => sum + payment.amount,
     0,
   )
+
+  // Касса текущей смены: только order-linked income payments НАЛИЧНЫМИ
+  // по кассе смены, созданные после opened_at. Card/transfer, прочие
+  // приходы, cash_operations и прошлые смены не учитываются.
+  // Ожидаемый остаток = opening_balance + принято наличными.
+  const shiftCash = openShift
+    ? (() => {
+        const openedAt = new Date(openShift.openedAt)
+
+        const cashPayments = incomePayments.filter(
+          (payment) =>
+            payment.orderId &&
+            payment.cashRegisterId === openShift.cashRegisterId &&
+            payment.paymentMethod === 'cash' &&
+            new Date(payment.createdAt) >= openedAt,
+        )
+
+        const cashCollected = cashPayments.reduce(
+          (sum, payment) => sum + payment.amount,
+          0,
+        )
+
+        return {
+          cashRegisterName: openShift.cashRegisterName,
+          openingBalance: openShift.openingBalance,
+          cashCollected,
+          expectedBalance: openShift.openingBalance + cashCollected,
+        }
+      })()
+    : null
   // «Деньги в кассах» — только активные кассы (согласовано с /cash-registers).
   const cashTotal = cashRegisters
     .filter((register) => register.isActive)
@@ -175,6 +205,7 @@ export async function getDashboardSummary() {
       cashRegisterId: shift.cashRegisterId,
       openedAt: shift.openedAt,
       operator: shift.operator,
+      cash: shiftCash,
     },
     orders: {
       // Полный список — для финансового агрегатора (дебиторка считает
