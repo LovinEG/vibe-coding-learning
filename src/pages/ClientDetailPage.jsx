@@ -9,6 +9,8 @@ import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import CreateClientModal from '../components/modals/CreateClientModal'
 import DeviceModal from '../components/modals/DeviceModal'
+import WorkShiftBanner from '../components/ui/WorkShiftBanner'
+import { useManagerShiftGuard } from '../lib/useWorkShift'
 import './Page.css'
 
 const TABS = [
@@ -40,6 +42,9 @@ function ClientDetailPage() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [deviceModalOpen, setDeviceModalOpen] = useState(false)
   const [deviceModalKey, setDeviceModalKey] = useState(0)
+
+  // UX-блокировка write-actions manager (RBAC применяется отдельно).
+  const workShift = useManagerShiftGuard()
 
   const loadClient = useCallback(async () => {
     try {
@@ -168,10 +173,13 @@ function ClientDetailPage() {
         <Button
           className="client-detail-page__edit-button"
           onClick={() => setEditModalOpen(true)}
+          disabled={workShift.blocked}
         >
           ✏️ Редактировать профиль
         </Button>
       </header>
+
+      <WorkShiftBanner />
 
       {/* Дашборд метрик */}
       <div className="client-detail-page__metrics">
@@ -321,6 +329,7 @@ function ClientDetailPage() {
                     setDeviceModalKey((prev) => prev + 1)
                     setDeviceModalOpen(true)
                   }}
+                  disabled={workShift.blocked}
                 >
                   + Добавить устройство
                 </Button>

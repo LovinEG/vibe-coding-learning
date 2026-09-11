@@ -20,7 +20,6 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
     cashRegisterId: '',
     startCash: '',
     closingBalance: '',
-    comment: '',
   })
   const [cashRegisters, setCashRegisters] = useState([])
   const [optionsLoading, setOptionsLoading] = useState(false)
@@ -211,71 +210,33 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
             </select>
           </label>
 
+          <label className="shift-modal__field">
+            <span className="shift-modal__label">
+              {isClosing ? 'Фактический остаток наличных при закрытии *' : 'Фактический остаток наличных при открытии *'}
+            </span>
+            <input
+              className="shift-modal__input"
+              name={isClosing ? 'closingBalance' : 'startCash'}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={isClosing ? form.closingBalance : form.startCash}
+              onChange={handleChange}
+            />
+          </label>
+
           {isClosing ? (
-            <>
-              <label className="shift-modal__field">
-                <span className="shift-modal__label">
-                  Итоговый остаток наличных в кассе *
-                </span>
-                <input
-                  className="shift-modal__input"
-                  name="closingBalance"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.closingBalance}
-                  onChange={handleChange}
-                />
-              </label>
-
-              <p className="shift-modal__hint">
-                Деньги остаются в кассе: закрытие смены не уменьшает баланс.
-              </p>
-            </>
-          ) : (
-            <label className="shift-modal__field">
-              <span className="shift-modal__label">
-                Фактический остаток наличных при открытии *
-              </span>
-              <input
-                className="shift-modal__input"
-                name="startCash"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={form.startCash}
-                onChange={handleChange}
-              />
-            </label>
-          )}
-
-          {!isClosing && selectedBalance !== null ? (
+            <p className="shift-modal__hint">
+              Деньги остаются в кассе: закрытие смены не уменьшает баланс.
+            </p>
+          ) : selectedBalance !== null ? (
             <p className="shift-modal__hint">
               Текущий остаток в системе:{' '}
               {formatCurrency(selectedBalance)}. При расхождении будет
               создана корректирующая запись (излишек / недостача).
             </p>
           ) : null}
-
-          <label className="shift-modal__field">
-            <span className="shift-modal__label">
-              {isClosing ? 'Заметка' : 'Заметка / Комментарий'}
-            </span>
-            <textarea
-              className="shift-modal__input shift-modal__textarea"
-              name="comment"
-              rows={3}
-              placeholder={
-                isClosing
-                  ? 'Комментарий к закрытию смены...'
-                  : 'Комментарий к открытию смены...'
-              }
-              value={form.comment}
-              onChange={handleChange}
-            />
-          </label>
 
           {!optionsLoading && cashRegisters.length === 0 ? (
             <p className="shift-modal__hint shift-modal__hint--error">

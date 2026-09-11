@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DeviceModal from '../components/modals/DeviceModal'
 import Button from '../components/ui/Button'
+import WorkShiftBanner from '../components/ui/WorkShiftBanner'
+import { useManagerShiftGuard } from '../lib/useWorkShift'
 import {
   deleteDevice,
   exportDevicesToCsv,
@@ -28,7 +30,10 @@ function DevicesPage() {
   // ВАЖНО: оба хука вызываются безусловно (правила хуков), объединение — ниже.
   const canCreateOrders = usePermission('orders.create')
   const canManageClients = usePermission('clients.manage')
-  const canManage = canCreateOrders || canManageClients
+
+  // RBAC первым (права на устройства), затем shift restriction manager.
+  const workShift = useManagerShiftGuard()
+  const canManage = (canCreateOrders || canManageClients) && !workShift.blocked
 
   // Дебаунс поиска: серверный запрос не дёргается на каждый символ.
   useEffect(() => {
@@ -113,6 +118,7 @@ function DevicesPage() {
 
   return (
     <div className="page devices-page">
+      <WorkShiftBanner />
       <header className="devices-page__head">
         <h1 className="devices-page__title">Устройства</h1>
         <div className="devices-page__actions">

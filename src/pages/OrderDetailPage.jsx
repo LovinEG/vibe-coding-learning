@@ -13,6 +13,8 @@ import { getServices } from '../data/services'
 import { getEmployees } from '../data/tasks'
 import EditOrderModal from '../components/modals/EditOrderModal'
 import CloseOrderModal from '../components/modals/CloseOrderModal'
+import WorkShiftBanner from '../components/ui/WorkShiftBanner'
+import { useManagerShiftGuard } from '../lib/useWorkShift'
 import { formatDate, formatDateTime, formatPrice } from '../lib/format'
 import { usePermission } from '../lib/usePermission'
 import { useAuth } from '../lib/useAuth'
@@ -123,8 +125,12 @@ function OrderDetailPage() {
   const [serviceSaving, setServiceSaving] = useState(false)
   const [serviceError, setServiceError] = useState('')
 
-  const canManage = usePermission('orders.edit')
+  const canManagePermission = usePermission('orders.edit')
   const canView = usePermission('orders.view')
+
+  // RBAC первым (orders.edit), затем shift restriction для manager.
+  const workShift = useManagerShiftGuard()
+  const canManage = canManagePermission && !workShift.blocked
 
   // Тихое обновление после мутаций (без сброса лоадера).
   const loadOrder = useCallback(async () => {
@@ -498,11 +504,14 @@ function OrderDetailPage() {
           <Button
             className="order-detail-page__pay-button"
             onClick={() => setPayCloseModalOpen(true)}
+            disabled={workShift.blocked}
           >
             💰 Оплатить и закрыть
           </Button>
         ) : null}
       </div>
+
+      <WorkShiftBanner />
 
       {closeSuccess ? (
         <p

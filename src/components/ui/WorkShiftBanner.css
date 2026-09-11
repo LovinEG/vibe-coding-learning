@@ -1,0 +1,13 @@
+.work-shift-banner {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.work-shift-banner--blocked {
+  border: 1px solid color-mix(in srgb, #c0392b 40%, var(--color-border));
+  background: color-mix(in srgb, #c0392b 8%, var(--color-surface));
+  color: #c0392b;
+}

@@ -9,6 +9,8 @@ import {
 import { isOverdueOrder } from '../data/orders'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { useAuth } from '../lib/useAuth'
+import WorkShiftBanner from '../components/ui/WorkShiftBanner'
+import { useManagerShiftGuard } from '../lib/useWorkShift'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import CreateOrderModal from '../components/modals/CreateOrderModal'
@@ -56,6 +58,9 @@ function DashboardPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   // Управление сменой прямо на дашборде: { open, mode } — mode 'open'|'close'.
   const [shiftModal, setShiftModal] = useState({ open: false, mode: 'open' })
+
+  // UX-блокировка write-actions manager (RBAC применяется отдельно).
+  const workShift = useManagerShiftGuard()
 
   const navigate = useNavigate()
   const { profile, user } = useAuth()
@@ -280,7 +285,12 @@ function DashboardPage() {
         </div>
 
         <div className="dashboard-page__actions">
-          <Button onClick={() => setIsCreateOpen(true)}>+ Новый заказ</Button>
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            disabled={workShift.blocked}
+          >
+            + Новый заказ
+          </Button>
           <Button
             className="dashboard-page__action--secondary"
             onClick={() => go('/clients')}
@@ -305,6 +315,8 @@ function DashboardPage() {
           ) : null}
         </div>
       </header>
+
+      <WorkShiftBanner />
 
       <div className="dashboard-page__metrics">
         {metricCards.map((card) => (

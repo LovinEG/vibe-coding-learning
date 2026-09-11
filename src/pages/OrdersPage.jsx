@@ -12,6 +12,8 @@ import {
 } from '../data/orders'
 import { getEmployees } from '../data/tasks'
 import { formatDate, formatPrice } from '../lib/format'
+import WorkShiftBanner from '../components/ui/WorkShiftBanner'
+import { useManagerShiftGuard } from '../lib/useWorkShift'
 import './Page.css'
 
 const STATUSES = ['Новый', 'Диагностика', 'В работе', 'Ожидает деталь', 'Готово к выдаче']
@@ -82,6 +84,9 @@ function OrdersPage() {
   const [employees, setEmployees] = useState([])
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [updatingId, setUpdatingId] = useState(null)
+
+  // UX-блокировка write-actions manager (RBAC применяется отдельно).
+  const workShift = useManagerShiftGuard()
 
   // Дебаунс поиска: не дёргаем сервер на каждый символ.
   useEffect(() => {
@@ -241,10 +246,16 @@ function OrdersPage() {
 
   return (
     <section className="page">
+      <WorkShiftBanner />
       <div className="orders-page__head">
         <h1 className="page__title">Заказы</h1>
         <div className="orders-page__actions">
-          <Button onClick={() => setIsCreateOpen(true)}>+ Создать заказ</Button>
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            disabled={workShift.blocked}
+          >
+            + Создать заказ
+          </Button>
           <Button
             className="orders-page__action-button"
             onClick={() => exportOrdersToCsv(visibleOrders)}
@@ -435,7 +446,7 @@ function OrdersPage() {
                     onChange={(newStatus) =>
                       handleStatusChange(order.id, newStatus)
                     }
-                    disabled={updatingId === order.id}
+                    disabled={updatingId === order.id || workShift.blocked}
                   />
                 </span>
                 <span className="orders-page__date">

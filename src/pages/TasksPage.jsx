@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import TaskModal from '../components/modals/TaskModal'
 import TaskStatusDropdown from '../components/ui/TaskStatusDropdown'
 import Button from '../components/ui/Button'
+import WorkShiftBanner from '../components/ui/WorkShiftBanner'
+import { useManagerShiftGuard } from '../lib/useWorkShift'
 import { deleteTask, getTasks, updateTask } from '../data/tasks'
 import { formatDateTime } from '../lib/format'
 import { usePermission } from '../lib/usePermission'
@@ -43,7 +45,9 @@ function TasksPage() {
   const [updatingId, setUpdatingId] = useState(null)
 
   // Запись задач: администратор или роль с правом tasks.manage.
-  const canManage = usePermission('tasks.manage')
+  // RBAC первым, затем shift restriction для manager.
+  const workShift = useManagerShiftGuard()
+  const canManage = usePermission('tasks.manage') && !workShift.blocked
 
   useEffect(() => {
     let cancelled = false
@@ -170,6 +174,7 @@ function TasksPage() {
 
   return (
     <div className="page tasks-page">
+      <WorkShiftBanner />
       <header className="tasks-page__head">
         <h1 className="tasks-page__title">Задачи</h1>
         {canManage ? (

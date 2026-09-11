@@ -6,6 +6,8 @@ import {
 } from '../data/clients'
 import { formatCurrency, formatDate } from '../lib/format'
 import Button from '../components/ui/Button'
+import WorkShiftBanner from '../components/ui/WorkShiftBanner'
+import { useManagerShiftGuard } from '../lib/useWorkShift'
 import CreateClientModal from '../components/modals/CreateClientModal'
 import './Page.css'
 
@@ -18,6 +20,9 @@ function ClientsPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+
+  // UX-блокировка write-actions manager (RBAC применяется отдельно).
+  const workShift = useManagerShiftGuard()
 
   // Дебаунс поиска: серверный запрос не дёргается на каждый символ.
   useEffect(() => {
@@ -63,6 +68,7 @@ function ClientsPage() {
 
   return (
     <section className="page clients-page">
+      <WorkShiftBanner />
       <div className="clients-page__head">
         <h1 className="page__title">Клиенты</h1>
         <div className="clients-page__actions">
@@ -73,7 +79,12 @@ function ClientsPage() {
           >
             📥 Экспорт в CSV
           </Button>
-          <Button onClick={() => setIsCreateOpen(true)}>+ Новый клиент</Button>
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            disabled={workShift.blocked}
+          >
+            + Новый клиент
+          </Button>
         </div>
       </div>
 
