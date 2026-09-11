@@ -71,18 +71,29 @@ function Sidebar({ isOpen, onNavigate }) {
     'iam.manage': usePermission('iam.manage'),
   }
 
-  // Навигационный UX-фильтр по роли: пункт «Финансовый отчёт» не показывается
-  // менеджеру (admin/user/technician — как раньше). Route /transactions при
-  // прямом переходе по URL не блокируется, права и БД не затрагиваются.
+  // Навигационный UX-фильтр по роли: менеджеру не показываются
+  // «Финансовый отчёт» и весь раздел «Аналитика» (admin/user/technician —
+  // как раньше). Route /ai-assistant при прямом переходе по URL не
+  // блокируется, права и БД не затрагиваются.
   const { profile } = useAuth()
   const isManager = profile?.roles?.code === 'manager'
 
-  const visibleSections = NAV_SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.filter(
-      (item) => !(isManager && item.to === '/transactions'),
-    ),
-  })).filter((section) => !section.permission || permissions[section.permission])
+  const visibleSections = NAV_SECTIONS.map((section) => {
+    if (isManager && section.title === 'Аналитика') {
+      return { ...section, items: [] }
+    }
+
+    return {
+      ...section,
+      items: section.items.filter(
+        (item) => !(isManager && item.to === '/transactions'),
+      ),
+    }
+  }).filter(
+    (section) =>
+      (!section.permission || permissions[section.permission]) &&
+      section.items.length > 0,
+  )
 
   return (
     <aside
