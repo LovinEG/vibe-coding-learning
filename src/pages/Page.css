@@ -4211,25 +4211,10 @@
   color: #c0392b;
 }
 
-/* Таймлайн истории */
-
-.order-detail-page__timeline {
-  list-style: none;
-  margin: 0;
-  padding: 0 0 0 4px;
-  position: relative;
-}
-
-.order-detail-page__timeline::before {
-  content: '';
-  position: absolute;
-  left: 19px;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  background: var(--color-border);
-}
-
+/* Таймлайн истории. Вертикальный коннектор ::before удалён:
+   старый History-таймлайн (timeline-item/icon) больше не рендерится,
+   а на новом order_events таймлайне эта линия проходила поверх
+   текста карточек комментариев. */
 .order-detail-page__timeline-item {
   position: relative;
   display: flex;
