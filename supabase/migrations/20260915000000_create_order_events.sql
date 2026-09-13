@@ -10,7 +10,13 @@ create table if not exists public.order_events (
   order_id   uuid        not null references public.orders (id) on delete cascade,
   type       text        not null,
   message    text,
-  author_id  uuid        references auth.users (id),
+  -- FK именно на profiles (как order_status_history.created_by и
+  -- order_parts.added_by): PostgREST строит embed-связи только по прямым
+  -- FK, поэтому author:profiles!author_id(...) в getOrderEvents работает.
+  -- profiles.id сам references auth.users(id) (1:1, PK) → author_id
+  -- по-прежнему всегда валидный auth user, id совпадает с auth.uid().
+  -- on delete set null — как в проекте: событие переживает удаление автора.
+  author_id  uuid        references public.profiles (id) on delete set null,
   metadata   jsonb       not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
