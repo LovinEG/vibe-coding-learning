@@ -5402,9 +5402,10 @@
   gap: 12px;
 }
 
-/* Базовое событие — единый каркас мини-карточки для комментариев
-   и системных событий: шапка (автор/бейдж + время) сверху,
-   текст ниже на всю доступную ширину. */
+/* Базовое событие — общий каркас для комментариев и системных событий:
+   шапка (автор/бейдж + время) сверху, текст ниже на всю ширину.
+   Иерархия задаётся модификаторами: комментарий — крупная зелёная
+   карточка, системное событие — компактная нейтральная строка. */
 .order-detail-page__event {
   width: 100%;
   min-width: 0;
@@ -5418,24 +5419,30 @@
   line-height: 1.5;
 }
 
-/* Системное событие — компактная мини-карточка: лёгкий серый фон и
-   тонкая граница. Отличается от комментария отсутствием акцентной
-   полосы; яркие цвета не используются. */
+/* Системное событие = действие CRM: компактная нейтральная строка.
+   Меньше отступов и визуального веса, приглушённые фон и граница,
+   без ярких акцентов (красный — только для rejected/error). */
 .order-detail-page__event--system {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 45%, #ffffff);
 }
 
-/* Комментарий сотрудника — светлая плашка с зелёной акцентной полосой
-   слева. Полоса — border-left, она идёт по скруглённому контуру
-   карточки. */
+/* Комментарий сотрудника = главный контент таймлайна: карточка больше
+   по площади, с едва заметным зелёным подтоном и округлённой зелёной
+   полосой слева. */
 .order-detail-page__event--comment {
-  background: #f7f8f9;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 14px 16px;
+  margin-bottom: 4px;
+  border-radius: 10px;
   border-left: 3px solid #2d9166;
+  background: color-mix(in srgb, var(--color-success-bg) 32%, #ffffff);
 }
 
-/* Голова события: слева автор/бейдж, справа время. */
+/* Голова события: слева автор/бейдж, справа вторичное время. */
 .order-detail-page__event-head {
   display: flex;
   align-items: baseline;
@@ -5456,9 +5463,34 @@
   color: var(--color-text);
 }
 
+/* В комментарии автор заметнее: жирнее + зелёная точка-маркер. */
+.order-detail-page__event--comment .order-detail-page__event-author {
+  font-weight: 700;
+}
+
+.order-detail-page__event--comment .order-detail-page__event-author::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #2d9166;
+  vertical-align: 1px;
+}
+
+/* В системной строке автор вторичен. */
+.order-detail-page__event--system .order-detail-page__event-author {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Время вторично и у комментариев, и у системных событий: справа,
+   мельче и приглушённее. */
 .order-detail-page__event-time {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -5493,11 +5525,22 @@
   color: #d64545;
 }
 
+/* Текст события: читается на всю ширину с переносами. */
 .order-detail-page__event-text {
   margin: 0;
   color: var(--color-text);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* В комментарии текст — основной контент, строки чуть свободнее. */
+.order-detail-page__event--comment .order-detail-page__event-text {
+  line-height: 1.55;
+}
+
+/* В системной строке текст компактный, но легко читаемый. */
+.order-detail-page__event--system .order-detail-page__event-text {
+  line-height: 1.45;
 }
 
 /* ==================================================================== */
