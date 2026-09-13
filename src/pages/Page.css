@@ -5438,28 +5438,18 @@
 }
 
 /* Комментарий сотрудника — визуально отдельно: светлая плашка
-   с зелёной акцентной полосой слева. Полоса — псевдоэлемент, а не
-   border-left: border на скруглённых углах закручивается и даёт
-   зелёные «крючки» сверху/снизу; ::before даёт строго вертикальную
-   полосу с корректными скруглениями только на внешних углах. */
+   с зелёной акцентной полосой слева. Полоса — border-left, она идёт
+   по скруглённому контуру карточки (зелёные закругления сверху/снизу
+   дают border-radius карточки). Никаких псевдоэлементов поверх
+   контента: ::before-полоса из предыдущего «фикса» давала светлый
+   вертикальный артефакт справа от зелёной границы. */
 .order-detail-page__event--comment {
-  position: relative;
   background: #f7f8f9;
   border-radius: 8px;
+  border-left: 3px solid #2d9166;
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.order-detail-page__event--comment::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: #2d9166;
-  border-radius: 8px 0 0 8px;
 }
 
 .order-detail-page__event-head {
