@@ -204,24 +204,84 @@ export function isOverdueOrder(order, now = new Date()) {
   return deadline !== null && deadline < now
 }
 
+// id клиентов, у которых имя или телефон совпали с search-паттерном.
+// Данные клиента ищутся отдельным запросом к справочнику: .or() по
+// foreign-table полям (clients.name) ломает парсинг PostgREST. Возвращаем
+// только uuid — дальше подставляются в client_id.in.() по orders.
+async function findClientIdsBySearch(pattern) {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id')
+    .or(`name.ilike.${pattern},phone.ilike.${pattern}`)
+
+  // Ошибка справочника не должна ломать поиск по заказам целиком:
+  // деградируем до пустого набора (совпадения по клиенту не найдутся).
+  if (error) {
+    console.error('Не удалось найти клиентов по поиску:', error.message)
+    return []
+  }
+
+  return (data ?? []).map((row) => row.id)
+}
+
+// id устройств, совпавших по бренду, модели или серийному номеру.
+async function findDeviceIdsBySearch(pattern) {
+  const { data, error } = await supabase
+    .from('devices')
+    .select('id')
+    .or(`brand.ilike.${pattern},model.ilike.${pattern},serial_number.ilike.${pattern}`)
+
+  if (error) {
+    console.error('Не удалось найти устройства по поиску:', error.message)
+    return []
+  }
+
+  return (data ?? []).map((row) => row.id)
+}
+
 // Список заказов с серверными фильтрами и мульти-поиском.
 // filters: { search, status, masterId, repairType, isOverdue }.
-// Поиск идёт по № заказа, имени/телефону клиента, бренду/модели
-// устройства и IMEI / серийному номеру (devices.serial_number).
+// Поиск идёт по № заказа (новому LT-... и старому legacy_number),
+// имени/телефону клиента и бренду/модели/серийному номеру устройства.
+// Связанные данные ищутся через предварительное разрешение id
+// (findClientIdsBySearch / findDeviceIdsBySearch): в .or() участвуют
+// только реальные колонки orders (client_id / device_id через in.()),
+// без foreign-table полей.
 export async function getOrders(filters = {}) {
   let query = supabase.from('orders').select(ORDER_SELECT)
 
   const search = filters.search?.trim()
 
   if (search) {
+    // % и _ — подстановочные знаки ilike, , ( ) — структурные символы
+    // PostgREST-фильтра: заменяем пробелом, чтобы любой пользовательский
+    // ввод не мог сломать запрос.
     const pattern = `%${search.replace(/[%_,()]/g, ' ')}%`
 
-    query = query.or(
-      [
-        `order_number.ilike.${pattern}`,
-        `client.ilike.${pattern}`,
-      ].join(','),
-    )
+    const [clientIds, deviceIds] = await Promise.all([
+      findClientIdsBySearch(pattern),
+      findDeviceIdsBySearch(pattern),
+    ])
+
+    // Условия только по реальным колонкам orders.
+    const conditions = [
+      `order_number.ilike.${pattern}`,
+      `client.ilike.${pattern}`,
+      // Старые номера (#1042, #491680, ...) ищутся в legacy_number.
+      `legacy_number.ilike.${pattern}`,
+    ]
+
+    // in.() с пустым списком — ошибка PostgREST: условие добавляем,
+    // только если совпадения в справочнике найдены.
+    if (clientIds.length > 0) {
+      conditions.push(`client_id.in.(${clientIds.join(',')})`)
+    }
+
+    if (deviceIds.length > 0) {
+      conditions.push(`device_id.in.(${deviceIds.join(',')})`)
+    }
+
+    query = query.or(conditions.join(','))
   }
 
   if (filters.status && filters.status !== 'Все') {
