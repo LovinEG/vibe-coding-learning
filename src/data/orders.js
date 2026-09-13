@@ -647,6 +647,23 @@ export async function createOrder(orderData) {
     createdBy: orderData.masterId ?? null,
   })
 
+  // 5. Событие таймлайна (Stage 3): order_created. Не дублирует
+  // logOrderEvent — это order_status_history, это order_events.
+  // Сбой записи таймлайна не ломает создание заказа.
+  const { error: createdEventError } = await supabase
+    .from('order_events')
+    .insert({
+      order_id: createdOrder.id,
+      type: 'order_created',
+      message: 'Заказ создан',
+      author_id: await getCurrentProfileId(),
+      metadata: { order_number: createdOrder.order_number ?? null },
+    })
+
+  if (createdEventError) {
+    console.error('Не удалось записать order_created:', createdEventError.message)
+  }
+
   // Возвращаем уже замапленный заказ — сгенерированный БД номер
   // доступен вызывающему коду как orderNumber.
   return mapOrder(createdOrder)
@@ -662,8 +679,25 @@ export async function updateOrder(orderId, updateData = {}) {
   const updates = {}
 
   // Прямые поля (инлайн-смена статуса и совместимость).
-  if (updateData.status !== undefined) {
+  let statusFrom = null
+  const statusChanged = updateData.status !== undefined
+
+  if (statusChanged) {
     updates.status = updateData.status
+
+    // Старый статус — для metadata события status_changed (один select
+    // только при смене статуса).
+    const { data: currentStatus, error: statusError } = await supabase
+      .from('orders')
+      .select('status')
+      .eq('id', orderId)
+      .single()
+
+    if (statusError) {
+      throw statusError
+    }
+
+    statusFrom = currentStatus?.status ?? null
   }
 
   // Поля редактирования карточки.
@@ -729,6 +763,25 @@ export async function updateOrder(orderId, updateData = {}) {
       status: 'updated',
       title: 'Данные заказа обновлены',
     })
+  }
+
+  // Событие таймлайна (Stage 3): status_changed — только при реальной
+  // смене статуса, metadata { from, to }. Не дублируется с logOrderEvent.
+  // Сбой записи таймлайна не ломает смену статуса.
+  if (statusChanged && statusFrom !== updateData.status) {
+    const { error: statusEventError } = await supabase
+      .from('order_events')
+      .insert({
+        order_id: orderId,
+        type: 'status_changed',
+        message: `Статус: «${statusFrom ?? '—'}» → «${updateData.status}»`,
+        author_id: await getCurrentProfileId(),
+        metadata: { from: statusFrom, to: updateData.status },
+      })
+
+    if (statusEventError) {
+      console.error('Не удалось записать status_changed:', statusEventError.message)
+    }
   }
 
   return mapOrder(data[0])

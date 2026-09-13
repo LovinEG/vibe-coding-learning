@@ -5390,6 +5390,89 @@
 }
 
 /* ==================================================================== */
+/* ---------- Stage 3: Order Timeline (order_events) ------------------ */
+/* ==================================================================== */
+/* Белый фон, graphite, зелёный #2D9166; красный не используется.        */
+
+/* Форма внутреннего комментария сотрудника. */
+.order-detail-page__comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.order-detail-page__comment-form .order-detail-page__small-button {
+  align-self: flex-end;
+}
+
+/* Таймлайн order_events: новые события сверху. */
+.order-detail-page__timeline--events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Базовое событие. */
+.order-detail-page__event {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-top: none;
+  font-size: 13px;
+}
+
+/* Системное событие — компактная строка: время + message. */
+.order-detail-page__event--system {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 10px;
+  color: var(--color-text-muted);
+}
+
+.order-detail-page__event--system .order-detail-page__event-text {
+  color: var(--color-text);
+}
+
+/* Комментарий сотрудника — визуально отдельно: светлая плашка
+   с зелёной акцентной полосой слева. */
+.order-detail-page__event--comment {
+  background: #f7f8f9;
+  border-left: 3px solid #2d9166;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-detail-page__event-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.order-detail-page__event-author {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.order-detail-page__event-time {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.order-detail-page__event-text {
+  margin: 0;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ==================================================================== */
 /* ---------- Manager Dashboard: единая визуальная система ------------ */
 /* ==================================================================== */
 /* Скоуп dashboard-page--manager: admin/user/technician не затронуты.   */

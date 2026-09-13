@@ -10,6 +10,7 @@ import {
   updateOrderDiagnostic,
 } from '../data/orders'
 import { addOrderPart } from '../data/orderParts'
+import { addOrderComment, getOrderEvents } from '../data/orderEvents'
 import { getParts } from '../data/inventory'
 import { getServices } from '../data/services'
 import { getEmployees } from '../data/tasks'
@@ -55,17 +56,19 @@ const APPROVAL_BADGES = {
   },
 }
 
-const EVENT_ICONS = {
-  created: '📝',
-  assigned: '👨‍🔧',
-  diagnosed: '🔍',
-  part_added: '🔩',
-  approval_sent: '📤',
-  approved: '✅',
-  rejected: '❌',
-  repaired: '🔧',
-  paid: '💰',
-  issued: '📦',
+// Подписи системных событий таймлайна (fallback, если message пуст).
+const EVENT_LABELS = {
+  order_created: 'Заказ создан',
+  status_changed: 'Статус изменён',
+  approval_sent: 'Смета отправлена клиенту',
+  approved: 'Клиент согласовал',
+  rejected: 'Клиент отказался',
+  price_changed: 'Стоимость изменена',
+  technician_assigned: 'Назначен мастер',
+  part_added: 'Добавлена деталь',
+  part_removed: 'Удалена деталь',
+  payment_added: 'Добавлен платёж',
+  order_closed: 'Заказ закрыт',
 }
 
 const EMPTY_PART_FORM = {
@@ -198,6 +201,79 @@ function OrderDetailPage() {
       cancelled = true
     }
   }, [id])
+
+  // ---------------- Таймлайн заказа (order_events, Stage 3) ----------------
+
+  const [orderEvents, setOrderEvents] = useState([])
+  const [eventsLoading, setEventsLoading] = useState(true)
+  const [eventsError, setEventsError] = useState('')
+  // Внутренний комментарий сотрудника.
+  const [newComment, setNewComment] = useState('')
+  const [commentSending, setCommentSending] = useState(false)
+  const [commentError, setCommentError] = useState('')
+
+  // order_events загружаются при открытии заказа (и при смене id);
+  // при добавлении комментария новая запись просто добавляется в начало
+  // списка без перезапроса — перезагрузка не нужна.
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadEvents() {
+      try {
+        const events = await getOrderEvents(id)
+
+        if (!cancelled) {
+          setOrderEvents(events)
+          setEventsError('')
+        }
+      } catch (err) {
+        console.error('Не удалось загрузить историю заказа:', err)
+
+        if (!cancelled) {
+          setEventsError('Не удалось загрузить историю заказа.')
+        }
+      } finally {
+        if (!cancelled) {
+          setEventsLoading(false)
+        }
+      }
+    }
+
+    loadEvents()
+
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
+  async function handleSubmitComment(event) {
+    event.preventDefault()
+
+    const text = newComment.trim()
+
+    if (!text || commentSending) {
+      return
+    }
+
+    setCommentSending(true)
+    setCommentError('')
+
+    try {
+      const created = await addOrderComment(id, text)
+
+      // Новые события сверху: комментарий добавляется в начало списка.
+      if (created) {
+        setOrderEvents((prev) => [created, ...prev])
+      }
+
+      setNewComment('')
+    } catch (err) {
+      console.error('Не удалось отправить комментарий:', err)
+      setCommentError('Не удалось отправить комментарий. Попробуйте ещё раз.')
+    } finally {
+      setCommentSending(false)
+    }
+  }
 
   // Калькулятор согласования: стоимость деталей + работы = итого.
   const partsSum = useMemo(() => {
@@ -1194,51 +1270,82 @@ function OrderDetailPage() {
           {/* История (таймлайн) */}
           <Card className="order-detail-page__panel">
             <h2 className="order-detail-page__panel-title">История</h2>
-            {order.history.length === 0 ? (
+
+            {/* Внутренний комментарий сотрудника (order_events, Stage 3). */}
+            {canView && !workShift.blocked ? (
+              <form
+                className="order-detail-page__comment-form"
+                onSubmit={handleSubmitComment}
+              >
+                <textarea
+                  className="order-detail-page__textarea"
+                  rows={2}
+                  placeholder="Добавить комментарий..."
+                  value={newComment}
+                  onChange={(event) => setNewComment(event.target.value)}
+                  disabled={commentSending}
+                />
+                <Button
+                  className="order-detail-page__small-button"
+                  type="submit"
+                  disabled={commentSending || !newComment.trim()}
+                >
+                  {commentSending ? 'Отправка...' : 'Отправить'}
+                </Button>
+              </form>
+            ) : null}
+
+            {commentError ? (
+              <p className="order-detail-page__alert" role="alert">
+                {commentError}
+              </p>
+            ) : null}
+
+            {eventsError ? (
+              <p className="order-detail-page__alert" role="alert">
+                {eventsError}
+              </p>
+            ) : null}
+
+            {eventsLoading ? (
+              <p className="order-detail-page__empty">Загрузка истории...</p>
+            ) : orderEvents.length === 0 ? (
               <p className="order-detail-page__empty">Событий пока нет</p>
             ) : (
-              <ol className="order-detail-page__timeline">
-                {order.history.map((event) => (
-                  <li key={event.id} className="order-detail-page__timeline-item">
-                    <span
-                      className="order-detail-page__timeline-icon"
-                      aria-hidden="true"
+              <ol className="order-detail-page__timeline order-detail-page__timeline--events">
+                {orderEvents.map((event) =>
+                  event.type === 'comment' ? (
+                    /* Комментарий сотрудника — визуально отдельно от
+                       системных событий: плашка с зелёной акцентной полосой. */
+                    <li
+                      key={event.id}
+                      className="order-detail-page__event order-detail-page__event--comment"
                     >
-                      {EVENT_ICONS[event.status] ?? '•'}
-                    </span>
-                    <div className="order-detail-page__timeline-body">
-                      <span className="order-detail-page__timeline-time">
+                      <div className="order-detail-page__event-head">
+                        <span className="order-detail-page__event-author">
+                          {event.authorName ?? 'Сотрудник'}
+                        </span>
+                        <span className="order-detail-page__event-time">
+                          {formatDateTime(event.createdAt)}
+                        </span>
+                      </div>
+                      <p className="order-detail-page__event-text">{event.message}</p>
+                    </li>
+                  ) : (
+                    /* Системное событие — компактная строка: время + message. */
+                    <li
+                      key={event.id}
+                      className="order-detail-page__event order-detail-page__event--system"
+                    >
+                      <span className="order-detail-page__event-time">
                         {formatDateTime(event.createdAt)}
                       </span>
-                      <span className="order-detail-page__timeline-title">
-                        {event.title ?? event.status}
+                      <span className="order-detail-page__event-text">
+                        {event.message ?? EVENT_LABELS[event.type] ?? event.type}
                       </span>
-                      {event.comment ? (
-                        <span className="order-detail-page__timeline-comment">
-                          {event.comment}
-                        </span>
-                      ) : null}
-                      <span className="order-detail-page__timeline-author">
-                        {event.authorAvatar ? (
-                          <img
-                            src={event.authorAvatar}
-                            alt=""
-                            className="order-detail-page__timeline-avatar"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span
-                            className="order-detail-page__timeline-avatar order-detail-page__timeline-avatar--placeholder"
-                            aria-hidden="true"
-                          >
-                            {(event.authorName ?? '?').charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                        {event.authorName ?? 'Система'}
-                      </span>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  ),
+                )}
               </ol>
             )}
           </Card>
