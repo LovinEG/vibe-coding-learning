@@ -7,16 +7,8 @@ import { refreshShiftState } from '../../lib/useWorkShift'
 import Button from '../ui/Button'
 import './ShiftModal.css'
 
-// Кассовая сверка отображается в BYN (касса LovinTech ведётся в BYN).
-// Общий formatCurrency рендерит ₽ и для блока сверки не используется.
-const bynFormatter = new Intl.NumberFormat('ru-RU', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
-function formatByn(value) {
-  return `${bynFormatter.format(value)} BYN`
-}
+// Кассовая сверка отображается в BYN через общий форматтер lib/format.js
+// (единая точка форматирования валюты CRM — формат 1 250,00 BYN).
 
 // Округление расхождения до копеек — убирает float-шум вида
 // 123.45 - 100.1 = 23.349999999999998 и нормализует -0 к 0.
@@ -323,15 +315,15 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
                 </div>
                 <div className="shift-modal__cash-row">
                   <span>Остаток при открытии</span>
-                  <span>{formatByn(shiftCash.openingBalance)}</span>
+                  <span>{formatCurrency(shiftCash.openingBalance)}</span>
                 </div>
                 <div className="shift-modal__cash-row">
                   <span>Принято наличными за смену</span>
-                  <span>+{formatByn(shiftCash.cashCollected)}</span>
+                  <span>+{formatCurrency(shiftCash.cashCollected)}</span>
                 </div>
                 <div className="shift-modal__cash-row shift-modal__cash-row--expected">
                   <span>Ожидаемый остаток</span>
-                  <span>{formatByn(shiftCash.expectedBalance)}</span>
+                  <span>{formatCurrency(shiftCash.expectedBalance)}</span>
                 </div>
               </div>
             ) : (
@@ -385,10 +377,10 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
               role="status"
             >
               {discrepancy === 0
-                ? `Расхождение: ${formatByn(discrepancy)}`
+                ? `Расхождение: ${formatCurrency(discrepancy)}`
                 : discrepancy > 0
-                  ? `Излишек: +${formatByn(discrepancy)}`
-                  : `Недостача: ${formatByn(discrepancy)}`}
+                  ? `Излишек: +${formatCurrency(discrepancy)}`
+                  : `Недостача: ${formatCurrency(discrepancy)}`}
             </p>
           ) : null}
 

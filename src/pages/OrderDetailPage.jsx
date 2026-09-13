@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   addOrderService,
   getOrderById,
+  getOrderDeadline,
   getOrderServices,
+  isOverdueOrder,
   updateOrderApproval,
   updateOrderDiagnostic,
 } from '../data/orders'
@@ -478,6 +480,12 @@ function OrderDetailPage() {
 
   const approval = APPROVAL_BADGES[order.approvalStatus] ?? APPROVAL_BADGES.not_required
 
+  // Контроль дедлайна: единая логика из orders.js — заданный deadline_at
+  // либо SLA-фallback (4 дня от accepted_at); просрочка — isOverdueOrder,
+  // та же, что в списках заказов и на дашборде.
+  const deadlineDate = getOrderDeadline(order)
+  const isOverdue = isOverdueOrder(order)
+
 
   return (
     <div className="page order-detail-page">
@@ -498,9 +506,11 @@ function OrderDetailPage() {
           </Button>
         ) : null}
 
-        {/* «Оплатить и закрыть»: только для заказов, готовых к выдаче.
-            Пока это UI-заглушка — кассу не проводит и статус не меняет. */}
-        {order.status === 'Готово к выдаче' ? (
+        {/* «Оплатить и закрыть»: только manager (orders.edit) и только
+            для заказов, готовых к выдаче. RPC close_order сам создаёт
+            income-платёж, меняет статус на «Закрыт», пишет closed_at и
+            защищает от повторной оплаты. */}
+        {canManage && order.status === 'Готово к выдаче' ? (
           <Button
             className="order-detail-page__pay-button"
             onClick={() => setPayCloseModalOpen(true)}
@@ -555,6 +565,23 @@ function OrderDetailPage() {
           <div>
             <dt>Принят</dt>
             <dd>{formatDate(order.acceptedAt)}</dd>
+          </div>
+          <div>
+            <dt>Срок</dt>
+            <dd>
+              {deadlineDate ? (
+                <>
+                  {formatDate(deadlineDate)}
+                  {isOverdue ? (
+                    <span className="orders-page__overdue-badge">
+                      ⏰ Просрочено
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                '—'
+              )}
+            </dd>
           </div>
           <div>
             <dt>Неисправность</dt>
@@ -770,7 +797,7 @@ function OrderDetailPage() {
                     />
                   </label>
                   <label className="order-detail-page__field">
-                    <span>Закупка, ₽ *</span>
+                    <span>Закупка, BYN *</span>
                     <input
                       className="order-detail-page__input"
                       type="number"
@@ -782,7 +809,7 @@ function OrderDetailPage() {
                     />
                   </label>
                   <label className="order-detail-page__field">
-                    <span>Наценка, ₽ *</span>
+                    <span>Наценка, BYN *</span>
                     <input
                       className="order-detail-page__input"
                       type="number"
@@ -909,7 +936,7 @@ function OrderDetailPage() {
 
                 <div className="order-detail-page__part-form-row">
                   <label className="order-detail-page__field">
-                    <span>Стоимость, ₽ *</span>
+                    <span>Стоимость, BYN *</span>
                     <input
                       className="order-detail-page__input"
                       type="number"

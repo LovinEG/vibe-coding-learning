@@ -191,7 +191,7 @@ function EditOrderModal({ order, onClose, onSaved }) {
             </label>
 
             <label className="edit-order-modal__field">
-              <span>Предварительная стоимость, ₽ *</span>
+              <span>Предварительная стоимость, BYN *</span>
               <input
                 className="edit-order-modal__input"
                 type="number"

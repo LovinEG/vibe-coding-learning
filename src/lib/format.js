@@ -4,7 +4,12 @@ const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
   year: 'numeric',
 })
 
-const priceFormatter = new Intl.NumberFormat('ru-RU')
+// Единая точка форматирования денежных сумм CRM — валюта BYN.
+// Формат: 1 250,00 BYN (ru-RU числа, два знака после запятой).
+const priceFormatter = new Intl.NumberFormat('ru-RU', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
 export function formatDate(dateString) {
   if (!dateString) {
@@ -31,10 +36,10 @@ export function formatPrice(price) {
     return '—'
   }
 
-  return `${priceFormatter.format(value)} ₽`
+  return `${priceFormatter.format(value)} BYN`
 }
 
-// Денежные суммы (кассы, счета): тот же ru-RU формат с ₽, что и formatPrice.
+// Денежные суммы (кассы, счета, платежи): тот же формат BYN, что и formatPrice.
 export function formatCurrency(value) {
   return formatPrice(value)
 }

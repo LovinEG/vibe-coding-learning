@@ -122,7 +122,7 @@ export async function addOrderPart(orderId, partData = {}) {
     title: `Добавлена деталь: ${partName}`,
     comment:
       clientPrice != null
-        ? `${qty} шт. × ${clientPrice} ₽ = ${Number(clientPrice) * qty} ₽`
+        ? `${qty} шт. × ${clientPrice} BYN = ${Number(clientPrice) * qty} BYN`
         : `${qty} шт.`,
     createdBy: profileId,
   })

@@ -444,7 +444,7 @@ function CreateOrderModal({ open, onClose, onOrderCreated }) {
 
           <label className="create-order-modal__field">
             <span className="create-order-modal__label">
-              Предварительная стоимость, ₽
+              Предварительная стоимость, BYN
             </span>
             <input
               className="create-order-modal__input"
