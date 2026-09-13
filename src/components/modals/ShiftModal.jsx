@@ -5,9 +5,29 @@ import { formatCurrency } from '../../lib/format'
 import Button from '../ui/Button'
 import './ShiftModal.css'
 
+// Кассовая сверка отображается в BYN (касса LovinTech ведётся в BYN).
+// Общий formatCurrency рендерит ₽ и для блока сверки не используется.
+const bynFormatter = new Intl.NumberFormat('ru-RU', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+function formatByn(value) {
+  return `${bynFormatter.format(value)} BYN`
+}
+
+// Округление расхождения до копеек — убирает float-шум вида
+// 123.45 - 100.1 = 23.349999999999998 и нормализует -0 к 0.
+function roundMoney(value) {
+  const rounded = Number(value.toFixed(2))
+  return rounded === 0 ? 0 : rounded
+}
+
 // Модальное окно управления сменой прямо с Дашборда:
-// mode 'open' — стартовый остаток и заметка,
-// mode 'close' — итоговый остаток и заметка.
+// mode 'open' — стартовый остаток,
+// mode 'close' — кассовая сверка: ожидаемый остаток смены и фактический
+// остаток (пересчёт менеджером). Расхождение информационное: закрытию
+// не мешает, баланс кассы не меняет, cash_operations не создаёт.
 // Инкассации в LovinTech нет: деньги остаются в кассе после закрытия.
 // Открытие/закрытие — через серверные RPC open_shift / close_shift
 // (public.shifts): роль, время (Europe/Minsk) и автор определяются
@@ -16,10 +36,18 @@ import './ShiftModal.css'
 function ShiftModal({ open, mode, shift, onClose, onSaved }) {
   const isClosing = mode === 'close'
 
+  // Кассовая сверка: openingBalance / cashCollected / expectedBalance уже
+  // рассчитаны в dashboard.js (getDashboardSummary → shift.cash) и переданы
+  // из DashboardPage — второй независимый расчёт не создаём. Если данных
+  // нет (модалка открыта из напоминания в AppLayout, где доступен только
+  // shiftId) — блок сверки не показываем, закрытие не блокируем.
+  const shiftCash = shift?.cash ?? null
+  const expectedBalance = shiftCash ? Number(shiftCash.expectedBalance) : null
+
   const [form, setForm] = useState({
     cashRegisterId: '',
     startCash: '',
-    closingBalance: '',
+    actualClosingBalance: '',
   })
   const [cashRegisters, setCashRegisters] = useState([])
   const [optionsLoading, setOptionsLoading] = useState(false)
@@ -41,14 +69,15 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
 
         if (!cancelled) {
           setCashRegisters(registers)
-          // По умолчанию — первая активная касса.
+          // По умолчанию — первая активная касса (нужно только для открытия
+          // смены). Фактический остаток при закрытии менеджер вводит
+          // вручную, без префилла из учётного баланса кассы.
           const defaultRegister = registers.find((item) => item.isActive)
 
           if (defaultRegister) {
             setForm((prev) => ({
               ...prev,
               cashRegisterId: defaultRegister.id,
-              closingBalance: String(defaultRegister.balance),
             }))
           }
         }
@@ -85,12 +114,24 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
   )
   const selectedBalance = selectedRegister?.balance ?? null
 
-  function validate() {
-    if (!form.cashRegisterId) {
-      return 'Выберите кассу'
-    }
+  // Расхождение кассовой сверки: фактический остаток − ожидаемый.
+  // Отрицательное — недостача (красным), положительное — излишек,
+  // ноль — расхождений нет. Показываем, как только введено корректное
+  // значение и доступен ожидаемый остаток смены.
+  const actualEntered = Number(form.actualClosingBalance)
+  const hasActualBalance =
+    form.actualClosingBalance !== '' && Number.isFinite(actualEntered)
+  const discrepancy =
+    hasActualBalance && expectedBalance !== null
+      ? roundMoney(actualEntered - expectedBalance)
+      : null
 
+  function validate() {
     if (!isClosing) {
+      if (!form.cashRegisterId) {
+        return 'Выберите кассу'
+      }
+
       const startCash = Number(form.startCash)
 
       if (
@@ -100,12 +141,21 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
       ) {
         return 'Укажите корректный стартовый остаток'
       }
-    } else {
-      const closingBalance = Number(form.closingBalance || 0)
 
-      if (!Number.isFinite(closingBalance) || closingBalance < 0) {
-        return 'Укажите корректный итоговый остаток'
-      }
+      return ''
+    }
+
+    // Закрытие: кассу берёт открытая смена (RPC close_shift по shiftId),
+    // из формы нужен только обязательный фактический остаток — сумма,
+    // которую менеджер реально пересчитал в кассе.
+    const actual = Number(form.actualClosingBalance)
+
+    if (
+      form.actualClosingBalance === '' ||
+      !Number.isFinite(actual) ||
+      actual < 0
+    ) {
+      return 'Укажите корректный фактический остаток'
     }
 
     return ''
@@ -129,7 +179,8 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
 
       if (isClosing) {
         // Закрытие: нужен id текущей открытой смены (public.shifts).
-        // closing_balance — snapshot; баланс кассы RPC не меняет.
+        // closing_balance — snapshot фактического остатка (пересчёт
+        // менеджером); баланс кассы RPC не меняет.
         if (!shift?.shiftId) {
           setError('Открытая смена не найдена. Обновите страницу.')
           setSubmitting(false)
@@ -138,7 +189,7 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
 
         const result = await supabase.rpc('close_shift', {
           p_shift_id: shift.shiftId,
-          p_closing_balance: Number(form.closingBalance || 0),
+          p_closing_balance: Number(form.actualClosingBalance),
         })
         rpcError = result.error
       } else {
@@ -190,45 +241,94 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
         </h2>
 
         <form onSubmit={handleSubmit}>
-          <label className="shift-modal__field">
-            <span className="shift-modal__label">Касса *</span>
-            <select
-              className="shift-modal__input"
-              name="cashRegisterId"
-              value={form.cashRegisterId}
-              onChange={handleChange}
-              disabled={optionsLoading}
-            >
-              <option value="">
-                {optionsLoading ? 'Загрузка касс...' : 'Выберите кассу'}
-              </option>
-              {cashRegisters.map((register) => (
-                <option key={register.id} value={register.id}>
-                  {register.name} · {formatCurrency(register.balance)}
+          {isClosing ? (
+            // Кассовая сверка при закрытии: данные смены переданы из
+            // Dashboard (shift.cash), кассу определяет открытая смена,
+            // а не форма.
+            shiftCash ? (
+              <div className="shift-modal__cash">
+                <div className="shift-modal__cash-row">
+                  <span>Касса</span>
+                  <span>{shiftCash.cashRegisterName}</span>
+                </div>
+                <div className="shift-modal__cash-row">
+                  <span>Остаток при открытии</span>
+                  <span>{formatByn(shiftCash.openingBalance)}</span>
+                </div>
+                <div className="shift-modal__cash-row">
+                  <span>Принято наличными за смену</span>
+                  <span>+{formatByn(shiftCash.cashCollected)}</span>
+                </div>
+                <div className="shift-modal__cash-row shift-modal__cash-row--expected">
+                  <span>Ожидаемый остаток</span>
+                  <span>{formatByn(shiftCash.expectedBalance)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="shift-modal__hint">
+                Данные кассы смены недоступны. Введите фактический остаток
+                вручную.
+              </p>
+            )
+          ) : (
+            <label className="shift-modal__field">
+              <span className="shift-modal__label">Касса *</span>
+              <select
+                className="shift-modal__input"
+                name="cashRegisterId"
+                value={form.cashRegisterId}
+                onChange={handleChange}
+                disabled={optionsLoading}
+              >
+                <option value="">
+                  {optionsLoading ? 'Загрузка касс...' : 'Выберите кассу'}
                 </option>
-              ))}
-            </select>
-          </label>
+                {cashRegisters.map((register) => (
+                  <option key={register.id} value={register.id}>
+                    {register.name} · {formatCurrency(register.balance)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <label className="shift-modal__field">
             <span className="shift-modal__label">
-              {isClosing ? 'Фактический остаток наличных при закрытии *' : 'Фактический остаток наличных при открытии *'}
+              {isClosing
+                ? 'Фактический остаток *'
+                : 'Фактический остаток наличных при открытии *'}
             </span>
             <input
               className="shift-modal__input"
-              name={isClosing ? 'closingBalance' : 'startCash'}
+              name={isClosing ? 'actualClosingBalance' : 'startCash'}
               type="number"
               min="0"
               step="0.01"
               placeholder="0.00"
-              value={isClosing ? form.closingBalance : form.startCash}
+              value={isClosing ? form.actualClosingBalance : form.startCash}
               onChange={handleChange}
             />
           </label>
 
+          {discrepancy !== null ? (
+            <p
+              className={`shift-modal__discrepancy${
+                discrepancy < 0 ? ' shift-modal__discrepancy--shortage' : ''
+              }`}
+              role="status"
+            >
+              {discrepancy === 0
+                ? `Расхождение: ${formatByn(discrepancy)}`
+                : discrepancy > 0
+                  ? `Излишек: +${formatByn(discrepancy)}`
+                  : `Недостача: ${formatByn(discrepancy)}`}
+            </p>
+          ) : null}
+
           {isClosing ? (
             <p className="shift-modal__hint">
               Деньги остаются в кассе: закрытие смены не уменьшает баланс.
+              Расхождение информационное и не блокирует закрытие.
             </p>
           ) : selectedBalance !== null ? (
             <p className="shift-modal__hint">
@@ -238,7 +338,7 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
             </p>
           ) : null}
 
-          {!optionsLoading && cashRegisters.length === 0 ? (
+          {!isClosing && !optionsLoading && cashRegisters.length === 0 ? (
             <p className="shift-modal__hint shift-modal__hint--error">
               Кассы не найдены. Сначала добавьте кассу в разделе «Кассы».
             </p>
@@ -259,7 +359,10 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
             >
               Отмена
             </Button>
-            <Button type="submit" disabled={submitting || optionsLoading}>
+            <Button
+              type="submit"
+              disabled={submitting || (!isClosing && optionsLoading)}
+            >
               {submitting
                 ? isClosing
                   ? 'Закрытие...'

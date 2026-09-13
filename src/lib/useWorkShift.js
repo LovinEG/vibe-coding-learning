@@ -98,10 +98,14 @@ export function useWorkShift() {
 // UX-блокировка write-actions: blocked только после загрузки профиля
 // и смены, чтобы manager не видел ложной блокировки на время загрузки.
 export function useManagerShiftGuard() {
-  const { canPerformWorkOperation, blockReason, loaded } = useWorkShift()
+  const { canPerformWorkOperation, blockReason, loaded, refresh } =
+    useWorkShift()
 
   return {
     blocked: loaded && !canPerformWorkOperation,
     reason: blockReason,
+    // Обновление состояния guard на лету (например, сразу после закрытия
+    // смены на дашборде — read-only применяется без перезагрузки страницы).
+    refresh,
   }
 }

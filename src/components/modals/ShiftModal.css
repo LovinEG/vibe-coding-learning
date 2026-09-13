@@ -113,3 +113,48 @@
   background: var(--color-bg);
   border-color: var(--color-border);
 }
+
+/* Кассовая сверка при закрытии смены */
+.shift-modal__cash {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+}
+
+.shift-modal__cash-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.shift-modal__cash-row span:last-child {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.shift-modal__cash-row--expected {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  font-weight: 600;
+}
+
+/* Расхождение сверки: ноль/излишек — нейтрально, красным — только недостача */
+.shift-modal__discrepancy {
+  margin: -6px 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.shift-modal__discrepancy--shortage {
+  color: #d64545;
+}

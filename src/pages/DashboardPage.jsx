@@ -194,6 +194,10 @@ function DashboardPage() {
 
   // Обновление состояния дашборда на лету после открытия/закрытия смены.
   function refreshSummary() {
+    // UX-guard смены держит своё состояние — обновляем его вместе с
+    // дашбордом, чтобы после закрытия смены read-only применился сразу.
+    workShift.refresh()
+
     return getDashboardSummary()
       .then(setSummary)
       .catch((err) => {
