@@ -71,6 +71,24 @@ const EVENT_LABELS = {
   order_closed: 'Заказ закрыт',
 }
 
+// Короткие подписи-бейджи для значимых системных событий (UI only).
+// Отличаются от текста события короткой формулировкой — бейдж в шапке
+// карточки, полный текст события рисуется ниже.
+const SYSTEM_BADGE_LABELS = {
+  approval_sent: 'Согласование',
+  approved: 'Согласовано',
+  rejected: 'Отклонено',
+  order_closed: 'Закрыт',
+}
+
+// Тон бейджа системного события. Красный — только для rejected
+// (danger); остальное — нейтральный серый или зелёный accent.
+const SYSTEM_BADGE_TONE = {
+  approved: 'success',
+  order_closed: 'success',
+  rejected: 'danger',
+}
+
 const EMPTY_PART_FORM = {
   partId: '',
   quantity: '1',
@@ -1313,46 +1331,75 @@ function OrderDetailPage() {
               <p className="order-detail-page__empty">Событий пока нет</p>
             ) : (
               <ol className="order-detail-page__timeline order-detail-page__timeline--events">
-                {orderEvents.map((event) =>
-                  event.type === 'comment' ? (
-                    /* Комментарий сотрудника — визуально отдельно от
-                       системных событий: плашка с зелёной акцентной полосой. */
-                    <li
-                      key={event.id}
-                      className="order-detail-page__event order-detail-page__event--comment"
-                    >
-                      <div className="order-detail-page__event-head">
-                        <span className="order-detail-page__event-author">
-                          {event.authorName ?? 'Сотрудник'}
-                        </span>
-                        <span className="order-detail-page__event-time">
-                          {formatDateTime(event.createdAt)}
-                        </span>
-                      </div>
-                      <p className="order-detail-page__event-text">{event.message}</p>
-                    </li>
-                  ) : (
-                    /* Системное событие — компактная строка: время + message.
-                       Легаси-события (order_status_history) дополнительно
-                       показывают автора, если он известен. */
-                    <li
-                      key={event.id}
-                      className="order-detail-page__event order-detail-page__event--system"
-                    >
-                      <span className="order-detail-page__event-time">
-                        {formatDateTime(event.createdAt)}
-                      </span>
-                      {event.legacy && event.authorName ? (
-                        <span className="order-detail-page__event-author">
-                          {event.authorName}
-                        </span>
-                      ) : null}
-                      <span className="order-detail-page__event-text">
-                        {event.message ?? EVENT_LABELS[event.type] ?? event.type}
-                      </span>
-                    </li>
-                  ),
-                )}
+                {orderEvents.map((event) => {
+                    if (event.type === 'comment') {
+                      /* Комментарий сотрудника — карточка с зелёной
+                         акцентной полосой слева. */
+                      return (
+                        <li
+                          key={event.id}
+                          className="order-detail-page__event order-detail-page__event--comment"
+                        >
+                          <div className="order-detail-page__event-head">
+                            <span className="order-detail-page__event-author">
+                              {event.authorName ?? 'Сотрудник'}
+                            </span>
+                            <span className="order-detail-page__event-time">
+                              {formatDateTime(event.createdAt)}
+                            </span>
+                          </div>
+                          <p className="order-detail-page__event-text">
+                            {event.message}
+                          </p>
+                        </li>
+                      )
+                    }
+
+                    /* Системное событие — компактная мини-карточка в том же
+                       каркасе, что и комментарий: шапка (бейдж/автор +
+                       время) сверху, текст на всю ширину ниже. */
+                    const badgeText =
+                      SYSTEM_BADGE_LABELS[event.type] ?? null
+                    const tone = SYSTEM_BADGE_TONE[event.type] ?? null
+
+                    return (
+                      <li
+                        key={event.id}
+                        className="order-detail-page__event order-detail-page__event--system"
+                      >
+                        <div className="order-detail-page__event-head">
+                          {badgeText || event.authorName ? (
+                            <div className="order-detail-page__event-meta">
+                              {badgeText ? (
+                                <span
+                                  className={`order-detail-page__event-badge${
+                                    tone
+                                      ? ` order-detail-page__event-badge--${tone}`
+                                      : ''
+                                  }`}
+                                >
+                                  {badgeText}
+                                </span>
+                              ) : null}
+                              {event.authorName ? (
+                                <span className="order-detail-page__event-author">
+                                  {event.authorName}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          <span className="order-detail-page__event-time">
+                            {formatDateTime(event.createdAt)}
+                          </span>
+                        </div>
+                        <p className="order-detail-page__event-text">
+                          {event.message ??
+                            EVENT_LABELS[event.type] ??
+                            event.type}
+                        </p>
+                      </li>
+                    )
+                  })}
               </ol>
             )}
           </Card>

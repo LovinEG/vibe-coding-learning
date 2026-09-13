@@ -5398,50 +5398,57 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-/* Базовое событие. */
-.order-detail-page__event {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border-top: none;
-  font-size: 13px;
-}
-
-/* Системное событие — компактная строка: время + message. */
-.order-detail-page__event--system {
-  display: flex;
-  align-items: baseline;
+  /* Увеличенные вертикальные отступы между событиями. */
   gap: 12px;
-  padding: 6px 10px;
-  color: var(--color-text-muted);
 }
 
-.order-detail-page__event--system .order-detail-page__event-text {
-  color: var(--color-text);
+/* Базовое событие — единый каркас мини-карточки для комментариев
+   и системных событий: шапка (автор/бейдж + время) сверху,
+   текст ниже на всю доступную ширину. */
+.order-detail-page__event {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-/* Комментарий сотрудника — визуально отдельно: светлая плашка
-   с зелёной акцентной полосой слева. Полоса — border-left, она идёт
-   по скруглённому контуру карточки (зелёные закругления сверху/снизу
-   дают border-radius карточки). Никаких псевдоэлементов поверх
-   контента: ::before-полоса из предыдущего «фикса» давала светлый
-   вертикальный артефакт справа от зелёной границы. */
+/* Системное событие — компактная мини-карточка: лёгкий серый фон и
+   тонкая граница. Отличается от комментария отсутствием акцентной
+   полосы; яркие цвета не используются. */
+.order-detail-page__event--system {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+/* Комментарий сотрудника — светлая плашка с зелёной акцентной полосой
+   слева. Полоса — border-left, она идёт по скруглённому контуру
+   карточки. */
 .order-detail-page__event--comment {
   background: #f7f8f9;
   border-radius: 8px;
   border-left: 3px solid #2d9166;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
+/* Голова события: слева автор/бейдж, справа время. */
 .order-detail-page__event-head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.order-detail-page__event-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
 }
 
 .order-detail-page__event-author {
@@ -5450,9 +5457,40 @@
 }
 
 .order-detail-page__event-time {
+  margin-left: auto;
   font-size: 12px;
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+
+/* Бейдж значимого системного события — маленькая приглушённая таблетка. */
+.order-detail-page__event-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Зелёная приглушённая таблетка: approved / order_closed. */
+.order-detail-page__event-badge--success {
+  background: color-mix(in srgb, var(--color-success-bg) 60%, #ffffff);
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+  color: var(--color-success);
+}
+
+/* Красная приглушённая таблетка: ТОЛЬКО rejected / cancel / error. */
+.order-detail-page__event-badge--danger {
+  background: #fdf0f0;
+  border-color: color-mix(in srgb, #d64545 35%, var(--color-border));
+  color: #d64545;
 }
 
 .order-detail-page__event-text {
