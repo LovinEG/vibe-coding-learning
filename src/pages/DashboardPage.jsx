@@ -7,7 +7,7 @@ import {
   buildStockWarnings,
   buildManagerAttentionOrders,
 } from '../data/dashboard'
-import { isOverdueOrder } from '../data/orders'
+import { isOverdueOrder, getOrderDeadline } from '../data/orders'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { useAuth } from '../lib/useAuth'
 import WorkShiftBanner from '../components/ui/WorkShiftBanner'
@@ -261,117 +261,115 @@ function DashboardPage() {
   ]
 
   // KPI менеджера приёмки (role-based rendering, admin — как раньше).
+  // tone: 'green' — мягкий зелёный акцент, 'danger' — красный только для
+  // просрочки; значения > 0. Ссылки/фильтры сохранены.
   const managerMetricCards = [
     {
       label: 'Новые',
       value: String(metrics.newOrders),
       to: '/orders?status=new',
-      accent: metrics.newOrders > 0,
+      tone: metrics.newOrders > 0 ? 'green' : 'neutral',
     },
     {
       label: 'На согласовании',
       value: String(metrics.awaitingApproval),
       to: '/orders?approval=pending',
-      accent: metrics.awaitingApproval > 0,
+      tone: metrics.awaitingApproval > 0 ? 'green' : 'neutral',
     },
     {
       label: 'Просрочены',
       value: String(metrics.overdueOrders),
       to: '/orders?overdue=true',
-      accent: metrics.overdueOrders > 0,
+      tone: metrics.overdueOrders > 0 ? 'danger' : 'neutral',
     },
     {
       label: 'Готовы к выдаче',
       value: String(metrics.readyForPickup),
       to: '/orders?status=ready',
-      accent: metrics.readyForPickup > 0,
+      tone: metrics.readyForPickup > 0 ? 'green' : 'neutral',
     },
   ]
 
   const visibleMetricCards = isManager ? managerMetricCards : metricCards
 
   return (
-    <div className="page dashboard-page">
+    <div className={`page dashboard-page${isManager ? ' dashboard-page--manager' : ''}`}>
       <header className="dashboard-page__header">
         <div className="dashboard-page__greeting">
           <h1 className="dashboard-page__title">
             {getGreeting(now.getHours())}, {userName}
           </h1>
           {isManager ? (
-            <p className="dashboard-page__shift">
-              Рабочее время: 11:00–17:30 ·{' '}
-              {shift.isOpen ? (
-                <>
-                  <span className="dashboard-page__shift-dot" aria-hidden="true" />
-                  Статус: открыта · {formatDateTime(shift.openedAt)}
-                  {shift.operator ? ` · ${shift.operator}` : ''}
-                </>
-              ) : (
-                <>
-                  Статус: не открыта
-                  <button
-                    type="button"
-                    className="dashboard-page__shift-open-button"
-                    onClick={() => openShiftModal('open')}
-                  >
-                    🔓 Открыть смену сейчас
-                  </button>
-                </>
-              )}
-              {shift.isOpen ? (
-                <Button
-                  className="dashboard-page__shift-action"
-                  onClick={() => openShiftModal('close')}
-                >
-                  🔒 Закрыть смену
-                </Button>
-              ) : null}
+            <p className="dashboard-page__subtitle">
+              Рабочее время 11:00–17:30 · активных заказов: {metrics.activeOrders}
             </p>
           ) : null}
         </div>
 
         <div className="dashboard-page__actions">
           {isManager ? (
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              disabled={workShift.blocked}
-            >
-              + Принять устройство
-            </Button>
+            <>
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                disabled={workShift.blocked}
+              >
+                + Принять устройство
+              </Button>
+              <Button
+                className="dashboard-page__action--secondary"
+                onClick={() => go('/clients')}
+              >
+                Найти клиента
+              </Button>
+            </>
           ) : (
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              disabled={workShift.blocked}
-            >
-              + Новый заказ
-            </Button>
+            <>
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                disabled={workShift.blocked}
+              >
+                + Новый заказ
+              </Button>
+              <Button
+                className="dashboard-page__action--secondary"
+                onClick={() => go('/clients')}
+              >
+                Найти клиента
+              </Button>
+            </>
           )}
-          <Button
-            className="dashboard-page__action--secondary"
-            onClick={() => go('/clients')}
-          >
-            Найти клиента
-          </Button>
-          {isManager && shift.isOpen ? (
-            <Button
-              className="dashboard-page__action--secondary"
-              onClick={() => openShiftModal('close')}
-            >
-              🔒 Закрыть смену
-            </Button>
-          ) : null}
-          {isManager && !shift.isOpen ? (
-            <Button
-              className="dashboard-page__action--secondary"
-              onClick={() => openShiftModal('open')}
-            >
-              🔓 Открыть смену
-            </Button>
-          ) : null}
         </div>
       </header>
 
-      <WorkShiftBanner />
+      {/* Основной блок смены manager — единственное место на дашборде
+          со статусом/кнопкой смены; глобальный WorkShiftBanner здесь
+          не дублирует его (на остальных страницах баннер сохранён). */}
+      {isManager ? (
+        <Card className="dashboard-page__panel dashboard-page__shift-card">
+          <div className="dashboard-page__shift-card-main">
+            <span
+              className={`dashboard-page__shift-card-status${
+                shift.isOpen ? ' dashboard-page__shift-card-status--open' : ''
+              }`}
+            >
+              <span className="dashboard-page__shift-dot" aria-hidden="true" />
+              {shift.isOpen ? 'Смена открыта' : 'Смена не открыта'}
+            </span>
+            <span className="dashboard-page__shift-card-meta">
+              Рабочее время 11:00–17:30
+              {shift.isOpen ? ` · открыта в ${formatDateTime(shift.openedAt)}` : ''}
+            </span>
+          </div>
+          <Button
+            className="dashboard-page__shift-card-button"
+            onClick={() => openShiftModal(shift.isOpen ? 'close' : 'open')}
+          >
+            {shift.isOpen ? 'Закрыть смену' : 'Открыть смену'}
+          </Button>
+        </Card>
+      ) : null}
+
+      {isManager ? null : <WorkShiftBanner />}
 
       <div className="dashboard-page__metrics">
         {visibleMetricCards.map((card) => (
@@ -379,7 +377,16 @@ function DashboardPage() {
             key={card.label}
             type="button"
             className={`dashboard-page__metric${
-              card.accent ? ' dashboard-page__metric--accent' : ''
+              isManager
+                ? // Manager: единая светлая система; danger — только просрочка.
+                  card.tone === 'danger'
+                  ? ' dashboard-page__metric--danger'
+                  : card.tone === 'green'
+                    ? ' dashboard-page__metric--green'
+                    : ''
+                : card.accent
+                  ? ' dashboard-page__metric--accent'
+                  : ''
             }`}
             onClick={() => go(card.to)}
           >
@@ -428,35 +435,57 @@ function DashboardPage() {
         {isManager ? (
           /* Менеджер приёмки: заказы, требующие внимания (приоритет —
              внутри buildManagerAttentionOrders; финансы/склад скрыты). */
-          <Card className="dashboard-page__panel">
+          <Card className="dashboard-page__panel dashboard-page__queue-panel">
             <h2 className="dashboard-page__panel-title">Требуют внимания</h2>
             {managerAttention.length === 0 ? (
               <p className="dashboard-page__empty">
                 Нет заказов, требующих внимания.
               </p>
             ) : (
-              <ul className="dashboard-page__action-list">
-                {managerAttention.map(({ order, reason }) => (
-                  <li key={order.id} className="dashboard-page__action">
-                    <span className="dashboard-page__action-icon" aria-hidden="true">
-                      {reason.split(' ')[0]}
-                    </span>
-                    <span className="dashboard-page__action-body">
-                      <span className="dashboard-page__action-title">
-                        Заказ {order.orderNumber} · {order.client ?? '—'}
-                      </span>
-                      <span className="dashboard-page__action-desc">
-                        {order.device ?? '—'} · {reason}
-                      </span>
-                    </span>
-                    <Button
-                      className="dashboard-page__action-button"
-                      onClick={() => go(`/orders/${order.id}`)}
+              <ul className="dashboard-page__queue">
+                {managerAttention.map(({ order, reason }) => {
+                  // Причина приходит с ведущим emoji-маркером из
+                  // buildManagerAttentionOrders; в UI он не нужен.
+                  const reasonText = reason.replace(/^\S+\s+/, '')
+                  const isOverdueRow = reasonText.startsWith('Просрочен')
+                  const deadline = isOverdueRow ? getOrderDeadline(order) : null
+
+                  return (
+                    <li
+                      key={order.id}
+                      className={`dashboard-page__queue-row${
+                        isOverdueRow ? ' dashboard-page__queue-row--overdue' : ''
+                      }`}
                     >
-                      Открыть
-                    </Button>
-                  </li>
-                ))}
+                      <span className="dashboard-page__queue-number">
+                        {order.orderNumber}
+                      </span>
+                      <span className="dashboard-page__queue-who">
+                        <span className="dashboard-page__queue-client">
+                          {order.client ?? '—'}
+                        </span>
+                        <span className="dashboard-page__queue-device">
+                          {order.device ?? '—'}
+                        </span>
+                      </span>
+                      <span className="dashboard-page__queue-reason">
+                        {reasonText}
+                        {deadline ? (
+                          <span className="dashboard-page__queue-deadline">
+                            {' '}
+                            · срок был {formatDate(deadline)}
+                          </span>
+                        ) : null}
+                      </span>
+                      <Button
+                        className="dashboard-page__action-button"
+                        onClick={() => go(`/orders/${order.id}`)}
+                      >
+                        Открыть
+                      </Button>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </Card>
@@ -646,12 +675,12 @@ function DashboardPage() {
                     {order.orderNumber}
                     {isOverdueOrder(order) ? (
                       <span className="orders-page__overdue-badge dashboard-page__overdue-badge">
-                        ⏰ Просрочено
+                        Просрочено
                       </span>
                     ) : null}
                     {order.approvalStatus === 'pending' ? (
                       <span className="orders-page__overdue-badge dashboard-page__overdue-badge dashboard-page__overdue-badge--approval">
-                        📤 Ожидает согласования
+                        Ожидает согласования
                       </span>
                     ) : null}
                   </span>
@@ -669,7 +698,15 @@ function DashboardPage() {
                   {/* Мастер и срок: в схеме orders нет master_id/deadline —
                       показываем «—» и дату приёма как ориентир по сроку. */}
                   <span>—</span>
-                  <span>{formatDate(order.acceptedAt)}</span>
+                  <span
+                    className={`dashboard-page__order-date${
+                      isOverdueOrder(order)
+                        ? ' dashboard-page__order-date--overdue'
+                        : ''
+                    }`}
+                  >
+                    {formatDate(order.acceptedAt)}
+                  </span>
                   <span className="dashboard-page__order-price">
                     {formatCurrency(order.price)}
                   </span>

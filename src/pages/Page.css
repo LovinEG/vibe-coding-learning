@@ -5389,3 +5389,294 @@
   font-size: 13px;
 }
 
+/* ==================================================================== */
+/* ---------- Manager Dashboard: единая визуальная система ------------ */
+/* ==================================================================== */
+/* Скоуп dashboard-page--manager: admin/user/technician не затронуты.   */
+/* Стиль LovinTech: белый фон, graphite, зелёный #2D9166, красный       */
+/* только для danger/overdue. Без gradients и тяжёлых теней.            */
+
+.dashboard-page--manager {
+  --mgr-green: #2d9166;
+  --mgr-green-soft: #e8f4ee;
+  --mgr-red: #d64545;
+  --mgr-red-soft: #fdf0f0;
+  --mgr-graphite: #2b3037;
+  --mgr-surface: #f7f8f9;
+  --mgr-border: #e6e8eb;
+  --mgr-radius: 12px;
+}
+
+/* --- Header: компактная рабочая шапка --- */
+
+.dashboard-page--manager .dashboard-page__header {
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.dashboard-page--manager .dashboard-page__subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* --- Единый блок смены (без дублирования баннера) --- */
+
+.dashboard-page--manager .dashboard-page__shift-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.dashboard-page--manager .dashboard-page__shift-card-main {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.dashboard-page--manager .dashboard-page__shift-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mgr-graphite);
+}
+
+.dashboard-page--manager .dashboard-page__shift-card-status .dashboard-page__shift-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--mgr-border);
+}
+
+.dashboard-page--manager .dashboard-page__shift-card-status--open .dashboard-page__shift-dot {
+  background: var(--mgr-green);
+}
+
+.dashboard-page--manager .dashboard-page__shift-card-meta {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.dashboard-page--manager .dashboard-page__shift-card-button {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--mgr-radius);
+  white-space: nowrap;
+}
+
+/* --- KPI: одинаковые светлые карточки, green accent, red = overdue --- */
+
+.dashboard-page--manager .dashboard-page__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dashboard-page--manager .dashboard-page__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--mgr-border);
+  border-radius: var(--mgr-radius);
+  background: var(--mgr-surface);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.dashboard-page--manager .dashboard-page__metric:hover,
+.dashboard-page--manager .dashboard-page__metric:focus-visible {
+  border-color: color-mix(in srgb, var(--mgr-green) 45%, transparent);
+  background: #ffffff;
+  outline: none;
+}
+
+.dashboard-page--manager .dashboard-page__metric-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.dashboard-page--manager .dashboard-page__metric-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--mgr-graphite);
+}
+
+.dashboard-page--manager .dashboard-page__metric--green .dashboard-page__metric-value {
+  color: var(--mgr-green);
+}
+
+.dashboard-page--manager .dashboard-page__metric--danger {
+  border-color: color-mix(in srgb, var(--mgr-red) 30%, transparent);
+  background: var(--mgr-red-soft);
+}
+
+.dashboard-page--manager .dashboard-page__metric--danger .dashboard-page__metric-value {
+  color: var(--mgr-red);
+}
+
+/* --- Требуют внимания: компактная очередь без emoji-иконок --- */
+
+.dashboard-page--manager .dashboard-page__queue-panel {
+  margin-bottom: 12px;
+}
+
+.dashboard-page--manager .dashboard-page__queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dashboard-page--manager .dashboard-page__queue-row {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) minmax(180px, 1.2fr) minmax(160px, 1.6fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 10px;
+  border-top: 1px solid var(--mgr-border);
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.dashboard-page--manager .dashboard-page__queue-row:first-child {
+  border-top: none;
+}
+
+.dashboard-page--manager .dashboard-page__queue-row:hover {
+  background: var(--mgr-surface);
+}
+
+.dashboard-page--manager .dashboard-page__queue-row--overdue {
+  border-left-color: color-mix(in srgb, var(--mgr-red) 45%, transparent);
+}
+
+.dashboard-page--manager .dashboard-page__queue-row--overdue .dashboard-page__queue-number {
+  color: var(--mgr-red);
+}
+
+.dashboard-page--manager .dashboard-page__queue-number {
+  font-weight: 600;
+  color: var(--mgr-graphite);
+}
+
+.dashboard-page--manager .dashboard-page__queue-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dashboard-page--manager .dashboard-page__queue-client {
+  font-weight: 600;
+  color: var(--mgr-graphite);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-page--manager .dashboard-page__queue-device {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-page--manager .dashboard-page__queue-reason {
+  color: var(--color-text-muted);
+  min-width: 0;
+}
+
+.dashboard-page--manager .dashboard-page__queue-deadline {
+  color: var(--mgr-red);
+}
+
+/* --- Активные заказы: компактная таблица, иерархия и срок --- */
+
+.dashboard-page--manager .dashboard-page__table-header {
+  gap: 10px;
+  padding: 0 4px 6px;
+}
+
+.dashboard-page--manager .dashboard-page__table-row {
+  gap: 10px;
+  padding: 7px 4px;
+  font-size: 12.5px;
+}
+
+.dashboard-page--manager .dashboard-page__table-row:hover {
+  background: color-mix(in srgb, var(--mgr-green) 5%, transparent);
+}
+
+.dashboard-page--manager .dashboard-page__order-number {
+  color: var(--mgr-graphite);
+}
+
+.dashboard-page--manager .dashboard-page__order-date {
+  color: var(--color-text-muted);
+}
+
+.dashboard-page--manager .dashboard-page__order-date--overdue {
+  font-weight: 600;
+  color: var(--mgr-red);
+}
+
+/* --- Касса текущей смены: компактный блок, не финансовый отчёт --- */
+
+.dashboard-page--manager .dashboard-page__finance {
+  gap: 6px;
+}
+
+.dashboard-page--manager .dashboard-page__finance-row {
+  font-size: 13px;
+}
+
+.dashboard-page--manager .dashboard-page__finance-value {
+  font-size: 13px;
+}
+
+/* --- Responsive: 1366 / 1440 / 1920 --- */
+
+@media (max-width: 1440px) {
+  .dashboard-page--manager .dashboard-page__queue-row {
+    grid-template-columns: minmax(80px, auto) minmax(150px, 1fr) minmax(140px, 1.4fr) auto;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 1366px) {
+  .dashboard-page--manager .dashboard-page__metrics {
+    gap: 10px;
+  }
+
+  .dashboard-page--manager .dashboard-page__metric-value {
+    font-size: 20px;
+  }
+
+  .dashboard-page--manager .dashboard-page__queue-row {
+    grid-template-columns: minmax(76px, auto) minmax(140px, 1fr) minmax(120px, 1.3fr) auto;
+  }
+}
+
+@media (min-width: 1920px) {
+  .dashboard-page--manager .dashboard-page__metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
