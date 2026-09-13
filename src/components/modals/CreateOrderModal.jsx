@@ -25,10 +25,6 @@ const emptyForm = {
   deviceCondition: '',
 }
 
-function generateOrderNumber() {
-  // Временная автонумерация: # + случайное 6-значное число
-  return `#${Math.floor(100000 + Math.random() * 900000)}`
-}
 
 function CreateOrderModal({ open, onClose, onOrderCreated }) {
   const [form, setForm] = useState(emptyForm)
@@ -174,7 +170,7 @@ function CreateOrderModal({ open, onClose, onOrderCreated }) {
         : form.device.trim()
 
       await createOrder({
-        orderNumber: generateOrderNumber(),
+        // Номер заказа генерируется БД (sequence, LT-XXXXXX) — не передаём.
         // Клиент: существующий (clientId) или быстрый ввод нового.
         clientId: isExistingClient ? form.existingClientId : null,
         client: clientName,

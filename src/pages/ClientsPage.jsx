@@ -108,6 +108,7 @@ function ClientsPage() {
       ) : (
         <div className="clients-page__table">
           <div className="clients-page__table-header">
+            <span>№</span>
             <span>Клиент</span>
             <span>Контакты</span>
             <span>Устройств</span>
@@ -123,6 +124,9 @@ function ClientsPage() {
                 className="clients-page__row clients-page__row--clickable"
                 onClick={() => navigate(`/clients/${client.id}`)}
               >
+                <span className="clients-page__number">
+                  {client.clientNumber ?? '—'}
+                </span>
                 <span className="clients-page__name">{client.name}</span>
                 <span className="clients-page__contacts">
                   <span className="clients-page__phone">

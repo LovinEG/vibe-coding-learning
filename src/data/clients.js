@@ -17,6 +17,8 @@ function mapClient(row) {
 
   return {
     id: row.id,
+    // Человекочитаемый последовательный номер (CL-XXXXXX), генерирует БД.
+    clientNumber: row.client_number ?? null,
     name: row.name,
     phone: row.phone,
     email: row.email ?? null,
@@ -30,13 +32,15 @@ function mapClient(row) {
 }
 
 // Каталог клиентов с серверным поиском и агрегатами.
-// filters: { search } — поиск по имени, телефону и email (PostgREST .or()).
-// Сортировка по умолчанию: created_at desc (недавно добавленные сверху).
+// filters: { search } — поиск по номеру клиента, имени, телефону и email
+// (PostgREST .or()).
+// Сортировка по умолчанию: client_number desc (последовательные номера,
+// фиксированный формат CL- + 6 цифр — лексический порядок корректен).
 export async function getClients(filters = {}) {
   let query = supabase
     .from('clients')
     .select(CLIENT_SELECT)
-    .order('created_at', { ascending: false })
+    .order('client_number', { ascending: false })
 
   const search = filters.search?.trim()
 
@@ -45,6 +49,7 @@ export async function getClients(filters = {}) {
 
     query = query.or(
       [
+        `client_number.ilike.${pattern}`,
         `name.ilike.${pattern}`,
         `phone.ilike.${pattern}`,
         `email.ilike.${pattern}`,
@@ -160,6 +165,7 @@ export async function updateClient(clientId, clientData) {
 // Экспорт выборки клиентов в CSV (Excel-совместимый: BOM + разделитель «;»).
 export function exportClientsToCsv(clientsList) {
   const headers = [
+    '№ клиента',
     'Имя',
     'Телефон',
     'Email',
@@ -176,6 +182,7 @@ export function exportClientsToCsv(clientsList) {
 
   const rows = clientsList.map((client) =>
     [
+      client.clientNumber,
       client.name,
       client.phone,
       client.email,

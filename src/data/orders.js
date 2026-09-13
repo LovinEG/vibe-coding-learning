@@ -123,6 +123,8 @@ function mapOrder(row) {
     diagnosticResult: row.diagnostic_result ?? null,
     approvalStatus: row.approval_status ?? 'not_required',
     approvalComment: row.approval_comment ?? null,
+    // Старый случайный номер (#XXXXXX и т.п.) — только для поиска.
+    legacyNumber: row.legacy_number ?? null,
     // Снапшот суммы, отправленной на согласование (numeric → строка из PG).
     approvalPrice: row.approval_price === null || row.approval_price === undefined
       ? null
@@ -217,6 +219,8 @@ export async function getOrders(filters = {}) {
     query = query.or(
       [
         `order_number.ilike.${pattern}`,
+        // Старые номера (#1042, #491680, ...) ищутся в legacy_number.
+        `legacy_number.ilike.${pattern}`,
         `client.ilike.${pattern}`,
         `clients.name.ilike.${pattern}`,
         `clients.phone.ilike.${pattern}`,
@@ -244,6 +248,10 @@ export async function getOrders(filters = {}) {
   if (filters.approval) {
     query = query.eq('approval_status', filters.approval)
   }
+
+  // Сортировка по умолчанию: новые заказы сверху. Номер последовательный
+  // и фиксированного формата (LT- + 6 цифр), лексический порядок корректен.
+  query = query.order('order_number', { ascending: false })
 
   if (filters.isOverdue) {
     const nowIso = new Date().toISOString()
@@ -543,11 +551,11 @@ export async function createOrder(orderData) {
     deviceId = deviceData.id
   }
 
-  // 3. Создаём заказ
+  // 3. Создаём заказ. order_number не передаётся: номер генерирует БД
+  // (sequence + default LT-XXXXXX), он приходит в ответе INSERT.
   const { data: createdOrder, error: orderError } = await supabase
     .from('orders')
     .insert({
-      order_number: orderData.orderNumber,
       client_id: clientId,
       device_id: deviceId,
       // для совместимости дублируем текстовые поля
@@ -586,7 +594,9 @@ export async function createOrder(orderData) {
     createdBy: orderData.masterId ?? null,
   })
 
-  return createdOrder
+  // Возвращаем уже замапленный заказ — сгенерированный БД номер
+  // доступен вызывающему коду как orderNumber.
+  return mapOrder(createdOrder)
 }
 
 
@@ -774,11 +784,13 @@ function formatMoney(value) {
 }
 
 
-export async function deleteOrder(orderNumber) {
+// Удаление заказа по техническому UUID id. Человекочитаемый номер
+// (LT-XXXXXX) — не идентификатор и для DELETE не используется.
+export async function deleteOrder(orderId) {
   const { data, error } = await supabase
     .from('orders')
     .delete()
-    .eq('order_number', orderNumber)
+    .eq('id', orderId)
     .select()
 
   if (error) {
@@ -786,6 +798,6 @@ export async function deleteOrder(orderNumber) {
   }
 
   if (!data || data.length === 0) {
-    throw new Error(`Заказ ${orderNumber} не найден или не был удалён`)
+    throw new Error(`Заказ ${orderId} не найден или не был удалён`)
   }
 }

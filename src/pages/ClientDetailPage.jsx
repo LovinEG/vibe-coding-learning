@@ -157,6 +157,9 @@ function ClientDetailPage() {
         <div>
           <h1 className="client-detail-page__title">{client.name}</h1>
           <div className="client-detail-page__header-tags">
+            <span className="client-detail-page__tag client-detail-page__tag--accent">
+              № {client.clientNumber ?? '—'}
+            </span>
             <span className="client-detail-page__tag">
               📅 В базе с {formatDate(client.createdAt)}
             </span>
