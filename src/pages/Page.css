@@ -4082,6 +4082,38 @@
   color: var(--color-text);
 }
 
+/* Комментарий отказа — заметно, но без кричащего красного: приглушённая
+   плашка с мягкой акцентной полосой слева. */
+.order-detail-page__approval-comment--rejected {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border-left: 3px solid color-mix(in srgb, #d64545 45%, transparent);
+}
+
+/* Метаданные согласования: сумма к согласованию и момент изменения. */
+.order-detail-page__approval-meta {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.order-detail-page__approval-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.order-detail-page__approval-meta-row span:last-child {
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
 .order-detail-page__approval-actions {
   display: flex;
   flex-wrap: wrap;

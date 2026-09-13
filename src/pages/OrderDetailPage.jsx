@@ -17,7 +17,7 @@ import EditOrderModal from '../components/modals/EditOrderModal'
 import CloseOrderModal from '../components/modals/CloseOrderModal'
 import WorkShiftBanner from '../components/ui/WorkShiftBanner'
 import { useManagerShiftGuard } from '../lib/useWorkShift'
-import { formatDate, formatDateTime, formatPrice } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime, formatPrice } from '../lib/format'
 import { usePermission } from '../lib/usePermission'
 import { useAuth } from '../lib/useAuth'
 import Button from '../components/ui/Button'
@@ -42,11 +42,11 @@ const APPROVAL_BADGES = {
     cls: 'order-detail-page__approval-badge--not-required',
   },
   pending: {
-    label: 'Ожидает решения клиента',
+    label: 'Ожидает согласования клиента',
     cls: 'order-detail-page__approval-badge--pending',
   },
   approved: {
-    label: 'Клиент согласовал',
+    label: 'Согласовано клиентом',
     cls: 'order-detail-page__approval-badge--approved',
   },
   rejected: {
@@ -479,6 +479,21 @@ function OrderDetailPage() {
   }
 
   const approval = APPROVAL_BADGES[order.approvalStatus] ?? APPROVAL_BADGES.not_required
+
+  // Момент последнего изменения согласования достоверно берём из истории
+  // (order_status_history): updateOrderApproval пишет туда событие
+  // approval_sent / approved / rejected с created_at. Отдельное поле
+  // approval_updated_at в БД не нужно. История отсортирована «свежие сверху»,
+  // поэтому первый матч — последнее событие нужного типа.
+  const APPROVAL_HISTORY_STATUS = {
+    pending: 'approval_sent',
+    approved: 'approved',
+    rejected: 'rejected',
+  }
+  const approvalEvent = order.history?.find(
+    (event) => event.status === APPROVAL_HISTORY_STATUS[order.approvalStatus],
+  )
+  const approvalChangedAt = approvalEvent?.createdAt ?? null
 
   // Контроль дедлайна: единая логика из orders.js — заданный deadline_at
   // либо SLA-фallback (4 дня от accepted_at); просрочка — isOverdueOrder,
@@ -1055,9 +1070,36 @@ function OrderDetailPage() {
               </span>
             </div>
 
-            {order.approvalStatus === 'rejected' && order.approvalComment ? (
-              <p className="order-detail-page__approval-comment">
-                Причина отказа: {order.approvalComment}
+            {/* Что и когда согласуется: сумма рядом со статусом, момент
+                последнего изменения — из истории (без новых полей в БД). */}
+            {order.approvalStatus !== 'not_required' ? (
+              <div className="order-detail-page__approval-meta">
+                <div className="order-detail-page__approval-meta-row">
+                  <span>Сумма к согласованию</span>
+                  <span>{formatCurrency(order.price)}</span>
+                </div>
+                {approvalChangedAt ? (
+                  <div className="order-detail-page__approval-meta-row">
+                    <span>
+                      {order.approvalStatus === 'pending' ? 'Смета отправлена' : 'Изменение'}
+                    </span>
+                    <span>{formatDateTime(approvalChangedAt)}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {order.approvalComment ? (
+              <p
+                className={`order-detail-page__approval-comment${
+                  order.approvalStatus === 'rejected'
+                    ? ' order-detail-page__approval-comment--rejected'
+                    : ''
+                }`}
+              >
+                {order.approvalStatus === 'rejected'
+                  ? `Причина отказа: ${order.approvalComment}`
+                  : `Комментарий: ${order.approvalComment}`}
               </p>
             ) : null}
 
@@ -1069,27 +1111,32 @@ function OrderDetailPage() {
 
             {canManage ? (
               <div className="order-detail-page__approval-actions">
-                <Button
-                  className="order-detail-page__small-button"
-                  onClick={() => handleApproval('pending')}
-                  disabled={approvalBusy || order.approvalStatus === 'pending'}
-                >
-                  Отправить клиенту
-                </Button>
-                <Button
-                  className="order-detail-page__small-button"
-                  onClick={() => handleApproval('approved')}
-                  disabled={approvalBusy || order.approvalStatus === 'approved'}
-                >
-                  Клиент согласовал
-                </Button>
-                <Button
-                  className="order-detail-page__small-button order-detail-page__small-button--danger"
-                  onClick={() => setRejectOpen((prev) => !prev)}
-                  disabled={approvalBusy}
-                >
-                  Клиент отказался
-                </Button>
+                {order.approvalStatus === 'pending' ? (
+                  <>
+                    <Button
+                      className="order-detail-page__small-button"
+                      onClick={() => handleApproval('approved')}
+                      disabled={approvalBusy}
+                    >
+                      Клиент согласовал
+                    </Button>
+                    <Button
+                      className="order-detail-page__small-button order-detail-page__small-button--danger"
+                      onClick={() => setRejectOpen((prev) => !prev)}
+                      disabled={approvalBusy}
+                    >
+                      Клиент отказался
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    className="order-detail-page__small-button"
+                    onClick={() => handleApproval('pending')}
+                    disabled={approvalBusy}
+                  >
+                    Отправить клиенту
+                  </Button>
+                )}
               </div>
             ) : null}
 

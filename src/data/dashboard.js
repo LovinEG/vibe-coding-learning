@@ -10,6 +10,7 @@ import { getTasks } from './tasks'
 import { getOpenShift, buildShiftCash } from './shifts'
 import { getStockBatches } from './stockBatches'
 import { supabase } from '../lib/supabase'
+import { formatCurrency } from '../lib/format'
 
 // Срок ремонта по умолчанию (fallback) живёт в orders.js
 // (OVERDUE_SLA_DAYS = 4 внутри getOrderDeadline).
@@ -408,7 +409,12 @@ export function buildManagerAttentionOrders(activeOrders, now = new Date()) {
       }
 
       taken.add(order.id)
-      rows.push({ order, reason })
+      // reason может быть функцией — тогда причина считается для заказа
+      // (например, сумма к согласованию).
+      rows.push({
+        order,
+        reason: typeof reason === 'function' ? reason(order) : reason,
+      })
     }
   }
 
@@ -419,7 +425,8 @@ export function buildManagerAttentionOrders(activeOrders, now = new Date()) {
 
   addGroup(
     activeOrders.filter((order) => order.approvalStatus === 'pending'),
-    '📤 Ожидает согласования клиента',
+    // Сумма рядом с причиной — менеджер сразу видит, что согласовывать.
+    (order) => `📤 Ожидает согласования · ${formatCurrency(order.price ?? 0)}`,
   )
 
   addGroup(
