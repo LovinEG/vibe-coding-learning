@@ -5438,13 +5438,28 @@
 }
 
 /* Комментарий сотрудника — визуально отдельно: светлая плашка
-   с зелёной акцентной полосой слева. */
+   с зелёной акцентной полосой слева. Полоса — псевдоэлемент, а не
+   border-left: border на скруглённых углах закручивается и даёт
+   зелёные «крючки» сверху/снизу; ::before даёт строго вертикальную
+   полосу с корректными скруглениями только на внешних углах. */
 .order-detail-page__event--comment {
+  position: relative;
   background: #f7f8f9;
-  border-left: 3px solid #2d9166;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.order-detail-page__event--comment::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #2d9166;
+  border-radius: 8px 0 0 8px;
 }
 
 .order-detail-page__event-head {
