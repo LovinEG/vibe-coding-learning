@@ -51,7 +51,7 @@ with ranked as (
     order_number,
     row_number() over (order by accepted_at asc nulls last, id asc) as rn
   from orders
-  where order_number is not like 'LT-%'
+  where order_number not like 'LT-%'
 )
 update orders o
 set
