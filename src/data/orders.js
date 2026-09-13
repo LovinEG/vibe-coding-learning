@@ -219,8 +219,6 @@ export async function getOrders(filters = {}) {
     query = query.or(
       [
         `order_number.ilike.${pattern}`,
-        // Старые номера (#1042, #491680, ...) ищутся в legacy_number.
-        `legacy_number.ilike.${pattern}`,
         `client.ilike.${pattern}`,
         `clients.name.ilike.${pattern}`,
         `clients.phone.ilike.${pattern}`,
