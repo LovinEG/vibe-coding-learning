@@ -426,7 +426,12 @@ export function buildManagerAttentionOrders(activeOrders, now = new Date()) {
   addGroup(
     activeOrders.filter((order) => order.approvalStatus === 'pending'),
     // Сумма рядом с причиной — менеджер сразу видит, что согласовывать.
-    (order) => `📤 Ожидает согласования · ${formatCurrency(order.price ?? 0)}`,
+    // Приоритет — снапшот approval_price; для legacy-заказов fallback
+    // на текущую orders.price.
+    (order) =>
+      `📤 Ожидает согласования · ${formatCurrency(
+        order.approvalPrice ?? order.price ?? 0,
+      )}`,
   )
 
   addGroup(

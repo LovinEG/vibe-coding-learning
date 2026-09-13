@@ -4114,6 +4114,24 @@
   white-space: nowrap;
 }
 
+/* Legacy-заказы без снапшота: честная пометка про fallback на текущую цену. */
+.order-detail-page__approval-fallback-note {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Стоимость изменилась после согласования — мягкое предупреждение
+   (amber), статус автоматически не сбрасывается. */
+.order-detail-page__approval-warning {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef3c7;
+  border-left: 3px solid color-mix(in srgb, #d97706 50%, transparent);
+  font-size: 13px;
+  color: #92400e;
+}
+
 .order-detail-page__approval-actions {
   display: flex;
   flex-wrap: wrap;

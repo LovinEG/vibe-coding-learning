@@ -123,6 +123,10 @@ function mapOrder(row) {
     diagnosticResult: row.diagnostic_result ?? null,
     approvalStatus: row.approval_status ?? 'not_required',
     approvalComment: row.approval_comment ?? null,
+    // Снапшот суммы, отправленной на согласование (numeric → строка из PG).
+    approvalPrice: row.approval_price === null || row.approval_price === undefined
+      ? null
+      : Number(row.approval_price),
     // Момент фактического закрытия (RPC close_order); для легаси-«Выдан» — null.
     closedAt: row.closed_at ?? null,
   }
@@ -438,6 +442,9 @@ const APPROVAL_EVENT_MAP = {
 }
 
 // Согласование ремонта с клиентом: pending / approved / rejected.
+// При pending в approval_price фиксируется снапшот текущей orders.price —
+// сумма, которую клиент видит в смете. При approved / rejected снапшот
+// НЕ перезаписывается: согласованной считается уже сохранённая сумма.
 export async function updateOrderApproval(orderId, { status, comment, updatedBy } = {}) {
   const event = APPROVAL_EVENT_MAP[status]
 
@@ -445,12 +452,30 @@ export async function updateOrderApproval(orderId, { status, comment, updatedBy 
     throw new Error(`Недопустимый статус согласования: ${status}`)
   }
 
+  const updates = {
+    approval_status: status,
+    approval_comment: comment ?? null,
+  }
+
+  if (status === 'pending') {
+    // Новая (или повторная после изменения цены) отправка сметы:
+    // обновляем снапшот текущей стоимостью заказа.
+    const { data: current, error: fetchError } = await supabase
+      .from('orders')
+      .select('price')
+      .eq('id', orderId)
+      .single()
+
+    if (fetchError) {
+      throw fetchError
+    }
+
+    updates.approval_price = Number(current.price) || 0
+  }
+
   const { data, error } = await supabase
     .from('orders')
-    .update({
-      approval_status: status,
-      approval_comment: comment ?? null,
-    })
+    .update(updates)
     .eq('id', orderId)
     .select()
     .single()

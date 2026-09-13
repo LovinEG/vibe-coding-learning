@@ -495,6 +495,20 @@ function OrderDetailPage() {
   )
   const approvalChangedAt = approvalEvent?.createdAt ?? null
 
+  // Сумма согласования: снапшот orders.approval_price, сохранённый при
+  // отправке сметы. Для legacy-заказов (снапшота ещё нет) fallback —
+  // текущая orders.price; это fallback, а не историческая сумма.
+  const hasApprovalPriceSnapshot = order.approvalPrice !== null && order.approvalPrice !== undefined
+  const approvalPrice = hasApprovalPriceSnapshot
+    ? Number(order.approvalPrice)
+    : Number(order.price ?? 0)
+  // Текущая стоимость разошлась с согласованной: автосброс статуса на
+  // фронте не делаем — только предупреждение и предложение новой сметы.
+  const priceChangedAfterApproval =
+    order.approvalStatus === 'approved' &&
+    hasApprovalPriceSnapshot &&
+    Number(order.price ?? 0) !== approvalPrice
+
   // Контроль дедлайна: единая логика из orders.js — заданный deadline_at
   // либо SLA-фallback (4 дня от accepted_at); просрочка — isOverdueOrder,
   // та же, что в списках заказов и на дашборде.
@@ -1070,13 +1084,17 @@ function OrderDetailPage() {
               </span>
             </div>
 
-            {/* Что и когда согласуется: сумма рядом со статусом, момент
-                последнего изменения — из истории (без новых полей в БД). */}
+            {/* Что и когда согласуется: снапшот суммы рядом со статусом,
+                момент последнего изменения — из истории (без новых полей в БД). */}
             {order.approvalStatus !== 'not_required' ? (
               <div className="order-detail-page__approval-meta">
                 <div className="order-detail-page__approval-meta-row">
-                  <span>Сумма к согласованию</span>
-                  <span>{formatCurrency(order.price)}</span>
+                  <span>
+                    {order.approvalStatus === 'approved'
+                      ? 'Согласованная сумма'
+                      : 'Сумма к согласованию'}
+                  </span>
+                  <span>{formatCurrency(approvalPrice)}</span>
                 </div>
                 {approvalChangedAt ? (
                   <div className="order-detail-page__approval-meta-row">
@@ -1086,7 +1104,19 @@ function OrderDetailPage() {
                     <span>{formatDateTime(approvalChangedAt)}</span>
                   </div>
                 ) : null}
+                {!hasApprovalPriceSnapshot ? (
+                  <span className="order-detail-page__approval-fallback-note">
+                    Сумма согласования не зафиксирована (legacy) — показана текущая стоимость
+                  </span>
+                ) : null}
               </div>
+            ) : null}
+
+            {priceChangedAfterApproval ? (
+              <p className="order-detail-page__approval-warning" role="status">
+                Стоимость заказа изменилась после согласования. Требуется повторное
+                согласование с клиентом.
+              </p>
             ) : null}
 
             {order.approvalComment ? (
@@ -1134,7 +1164,7 @@ function OrderDetailPage() {
                     onClick={() => handleApproval('pending')}
                     disabled={approvalBusy}
                   >
-                    Отправить клиенту
+                    {priceChangedAfterApproval ? 'Отправить новую смету' : 'Отправить клиенту'}
                   </Button>
                 )}
               </div>
