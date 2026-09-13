@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { getCashRegisters } from '../../data/cashRegisters'
+import { getOpenShiftCashSummary } from '../../data/shifts'
 import { formatCurrency } from '../../lib/format'
+import { refreshShiftState } from '../../lib/useWorkShift'
 import Button from '../ui/Button'
 import './ShiftModal.css'
 
@@ -23,26 +25,21 @@ function roundMoney(value) {
   return rounded === 0 ? 0 : rounded
 }
 
-// Модальное окно управления сменой прямо с Дашборда:
+// Модальное окно управления сменой:
 // mode 'open' — стартовый остаток,
-// mode 'close' — кассовая сверка: ожидаемый остаток смены и фактический
-// остаток (пересчёт менеджером). Расхождение информационное: закрытию
-// не мешает, баланс кассы не меняет, cash_operations не создаёт.
+// mode 'close' — ОБЯЗАТЕЛЬНАЯ кассовая сверка (касса, остаток при открытии,
+// принято наличными, ожидаемый остаток, фактический остаток и расхождение).
+// Данные сверки всегда загружаются общим хелпером getOpenShiftCashSummary
+// (data/shifts.js) — одна бизнес-логика с Dashboard; fallback «закрыть без
+// сверки» невозможен. Расхождение информационное: закрытию не мешает,
+// баланс кассы не меняет, cash_operations не создаёт.
 // Инкассации в LovinTech нет: деньги остаются в кассе после закрытия.
 // Открытие/закрытие — через серверные RPC open_shift / close_shift
 // (public.shifts): роль, время (Europe/Minsk) и автор определяются
-// сервером, frontend их не передаёт. Маркеры cash_operations больше
-// не создаются.
+// сервером, frontend их не передаёт. После успешного RPC состояние смены
+// обновляется во всех подписчиках общего shift-состояния (refreshShiftState).
 function ShiftModal({ open, mode, shift, onClose, onSaved }) {
   const isClosing = mode === 'close'
-
-  // Кассовая сверка: openingBalance / cashCollected / expectedBalance уже
-  // рассчитаны в dashboard.js (getDashboardSummary → shift.cash) и переданы
-  // из DashboardPage — второй независимый расчёт не создаём. Если данных
-  // нет (модалка открыта из напоминания в AppLayout, где доступен только
-  // shiftId) — блок сверки не показываем, закрытие не блокируем.
-  const shiftCash = shift?.cash ?? null
-  const expectedBalance = shiftCash ? Number(shiftCash.expectedBalance) : null
 
   const [form, setForm] = useState({
     cashRegisterId: '',
@@ -53,6 +50,14 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
   const [optionsLoading, setOptionsLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // Кассовая сверка закрытия: свежие данные смены из общего хелпера
+  // (та же бизнес-логика, что и на Dashboard). Без этих данных закрытие
+  // недоступно — fallback не предусмотрен.
+  const [shiftCash, setShiftCash] = useState(null)
+  const [cashLoading, setCashLoading] = useState(false)
+  const [cashError, setCashError] = useState('')
+  const expectedBalance = shiftCash ? Number(shiftCash.expectedBalance) : null
 
   useEffect(() => {
     if (!open) {
@@ -98,6 +103,55 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
       cancelled = true
     }
   }, [open])
+
+  // Кассовая сверка закрытия: загружается ВСЕГДА общим хелпером
+  // getOpenShiftCashSummary (одинаковая бизнес-логика из любого места CRM).
+  // Свежие данные, а не снимок из пропсов — учитывают оплаты, сделанные
+  // только что. Пока данных нет — закрытие недоступно (без fallback).
+  useEffect(() => {
+    if (!open || !isClosing) {
+      return undefined
+    }
+
+    let cancelled = false
+
+    async function loadCashSummary() {
+      setCashLoading(true)
+      setCashError('')
+      setShiftCash(null)
+
+      try {
+        const { data: userData } = await supabase.auth.getUser()
+        const cash = await getOpenShiftCashSummary(userData?.user?.id ?? null)
+
+        if (cancelled) {
+          return
+        }
+
+        if (!cash) {
+          setCashError('Открытая смена не найдена. Обновите страницу.')
+          return
+        }
+
+        setShiftCash(cash)
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Не удалось загрузить кассу смены:', err)
+          setCashError('Не удалось загрузить кассу смены. Попробуйте ещё раз.')
+        }
+      } finally {
+        if (!cancelled) {
+          setCashLoading(false)
+        }
+      }
+    }
+
+    loadCashSummary()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, isClosing])
 
   if (!open) {
     return null
@@ -145,9 +199,14 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
       return ''
     }
 
-    // Закрытие: кассу берёт открытая смена (RPC close_shift по shiftId),
-    // из формы нужен только обязательный фактический остаток — сумма,
-    // которую менеджер реально пересчитал в кассе.
+    // Закрытие: без обязательной кассовой сверки закрытие недоступно.
+    if (!shiftCash) {
+      return cashError || 'Дождитесь загрузки кассы смены'
+    }
+
+    // Кассу берёт открытая смена (RPC close_shift по shiftId), из формы
+    // нужен только обязательный фактический остаток — сумма, которую
+    // менеджер реально пересчитал в кассе.
     const actual = Number(form.actualClosingBalance)
 
     if (
@@ -206,6 +265,10 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
         throw rpcError
       }
 
+      // Состояние смены (глобальный баннер, guard, напоминания, дашборд)
+      // обновляется сразу во всех подписчиках общего shift-состояния.
+      await refreshShiftState()
+
       if (onSaved) {
         await onSaved()
       }
@@ -242,10 +305,17 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit}>
           {isClosing ? (
-            // Кассовая сверка при закрытии: данные смены переданы из
-            // Dashboard (shift.cash), кассу определяет открытая смена,
-            // а не форма.
-            shiftCash ? (
+            // Обязательная кассовая сверка при закрытии: данные смены из
+            // общего хелпера, одинаково из любого места CRM. Пока данных
+            // нет (загрузка/ошибка) — закрытие недоступно, fallback нет.
+            cashError ? (
+              <p
+                className="shift-modal__hint shift-modal__hint--error"
+                role="alert"
+              >
+                {cashError}
+              </p>
+            ) : shiftCash ? (
               <div className="shift-modal__cash">
                 <div className="shift-modal__cash-row">
                   <span>Касса</span>
@@ -265,10 +335,7 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
                 </div>
               </div>
             ) : (
-              <p className="shift-modal__hint">
-                Данные кассы смены недоступны. Введите фактический остаток
-                вручную.
-              </p>
+              <p className="shift-modal__hint">Загрузка кассы смены...</p>
             )
           ) : (
             <label className="shift-modal__field">
@@ -361,7 +428,11 @@ function ShiftModal({ open, mode, shift, onClose, onSaved }) {
             </Button>
             <Button
               type="submit"
-              disabled={submitting || (!isClosing && optionsLoading)}
+              disabled={
+                submitting ||
+                (isClosing && (cashLoading || !shiftCash)) ||
+                (!isClosing && optionsLoading)
+              }
             >
               {submitting
                 ? isClosing

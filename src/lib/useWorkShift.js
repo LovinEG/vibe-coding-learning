@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { supabase } from './supabase'
 import { useAuth } from './useAuth'
 import { getOpenShift } from '../data/shifts'
 
@@ -23,6 +24,65 @@ export function getMinskMinutesNow() {
   return hour * 60 + minute
 }
 
+// ----- Общее состояние открытой смены (один источник для всех подписчиков) -----
+// Dashboard, WorkShiftBanner и напоминания AppLayout подписаны на одно и то
+// же состояние. После успешного open_shift / close_shift ShiftModal вызывает
+// refreshShiftState() — актуальное состояние смены сразу распространяется во
+// все места CRM без перезагрузки страницы и без нового state framework.
+let sharedState = { openShift: null, loaded: false }
+const shiftListeners = new Set()
+let refreshInFlight = null
+
+function getSharedState() {
+  return sharedState
+}
+
+function subscribeSharedState(listener) {
+  shiftListeners.add(listener)
+
+  return () => {
+    shiftListeners.delete(listener)
+  }
+}
+
+function setSharedState(openShift, loaded) {
+  sharedState = { openShift, loaded }
+
+  for (const listener of shiftListeners) {
+    listener()
+  }
+}
+
+// Обновление состояния открытой смены из БД. Параллельные вызовы
+// дедуплицируются — вызывать безопасно из любого места CRM.
+export function refreshShiftState() {
+  if (refreshInFlight) {
+    return refreshInFlight
+  }
+
+  refreshInFlight = (async () => {
+    const { data: userData } = await supabase.auth.getUser()
+    const userId = userData?.user?.id ?? null
+
+    let next = null
+
+    if (userId) {
+      try {
+        next = await getOpenShift(userId)
+      } catch (err) {
+        console.warn('Не удалось загрузить открытую смену:', err.message)
+        next = null
+      }
+    }
+
+    setSharedState(next, true)
+  })().finally(() => {
+    refreshInFlight = null
+  })
+
+  return refreshInFlight
+}
+
 // Глобальный хук обязательной смены. Shift restriction применяется
 // ТОЛЬКО к роли manager; admin/user/technician работают без ограничений
 // (RBAC первым, shift — вторым).
@@ -32,31 +92,19 @@ export function useWorkShift() {
   const roleCode = profile?.roles?.code ?? null
   const isManager = roleCode === 'manager'
 
-  const [openShift, setOpenShift] = useState(null)
-  const [loaded, setLoaded] = useState(false)
+  // Все экземпляры хука читают общее состояние — открытая смена всегда
+  // согласована между баннером, дашбордом и напоминаниями.
+  const { openShift, loaded } = useSyncExternalStore(
+    subscribeSharedState,
+    getSharedState,
+  )
   const [, setTick] = useState(0)
 
-  const refresh = useCallback(async () => {
-    if (!userId) {
-      setOpenShift(null)
-      setLoaded(true)
-      return
-    }
-
-    try {
-      setOpenShift(await getOpenShift(userId))
-    } catch (err) {
-      console.warn('Не удалось загрузить открытую смену:', err.message)
-      setOpenShift(null)
-    } finally {
-      setLoaded(true)
-    }
-  }, [userId])
-
+  // Загрузка/обновление состояния: на маунте подписчика и при смене
+  // пользователя (вход/выход). Параллельные refresh дедуплицируются.
   useEffect(() => {
-    setLoaded(false)
-    refresh()
-  }, [refresh])
+    refreshShiftState()
+  }, [userId])
 
   // Пересчёт бизнес-времени каждые 30 секунд (окно 11:00/17:00/17:30).
   useEffect(() => {
@@ -91,7 +139,7 @@ export function useWorkShift() {
     canPerformWorkOperation,
     blockReason,
     loaded,
-    refresh,
+    refresh: refreshShiftState,
   }
 }
 

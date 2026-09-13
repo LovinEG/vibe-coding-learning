@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { getPayments } from './payments'
 
 // Чтение смен из public.shifts (этап 1 серверной системы смен).
 // Строки создаются только RPC open_shift / close_shift.
@@ -36,4 +37,58 @@ export async function getOpenShift(userId) {
   }
 
   return data ? mapShift(data) : null
+}
+
+// ЕДИНЫЙ расчёт кассы текущей смены — одна бизнес-логика для всех мест:
+//   expectedBalance = opening_balance
+//     + order-linked income payments (только текущая касса, только cash,
+//       только после opened_at).
+// Используется Dashboard (getDashboardSummary) и ShiftModal (закрытие
+// смены) — независимые копии расчёта не создаются.
+export function buildShiftCash(openShift, incomePayments, now = new Date()) {
+  if (!openShift) {
+    return null
+  }
+
+  const openedAt = new Date(openShift.openedAt)
+
+  const cashPayments = incomePayments.filter(
+    (payment) =>
+      payment.orderId &&
+      payment.cashRegisterId === openShift.cashRegisterId &&
+      payment.paymentMethod === 'cash' &&
+      new Date(payment.createdAt) >= openedAt &&
+      new Date(payment.createdAt) <= now,
+  )
+
+  const cashCollected = cashPayments.reduce(
+    (sum, payment) => sum + payment.amount,
+    0,
+  )
+
+  return {
+    cashRegisterName: openShift.cashRegisterName,
+    openingBalance: openShift.openingBalance,
+    cashCollected,
+    expectedBalance: openShift.openingBalance + cashCollected,
+  }
+}
+
+// Полные данные кассовой сверки открытой смены пользователя: открытая смена
+// (public.shifts) + платежи, рассчитанные единым buildShiftCash.
+// Используется ShiftModal при закрытии смены из ЛЮБОГО места CRM — сверка
+// всегда обязательна и одинакова независимо от точки входа в модалку.
+export async function getOpenShiftCashSummary(userId) {
+  const openShift = await getOpenShift(userId)
+
+  if (!openShift) {
+    return null
+  }
+
+  const payments = await getPayments()
+  const incomePayments = payments.filter(
+    (payment) => payment.type === 'income',
+  )
+
+  return buildShiftCash(openShift, incomePayments)
 }

@@ -7,7 +7,7 @@ import { getParts } from './inventory'
 import { getCashRegisters } from './cashRegisters'
 import { getPayments } from './payments'
 import { getTasks } from './tasks'
-import { getOpenShift } from './shifts'
+import { getOpenShift, buildShiftCash } from './shifts'
 import { getStockBatches } from './stockBatches'
 import { supabase } from '../lib/supabase'
 
@@ -151,35 +151,10 @@ export async function getDashboardSummary() {
     0,
   )
 
-  // Касса текущей смены: только order-linked income payments НАЛИЧНЫМИ
-  // по кассе смены, созданные после opened_at. Card/transfer, прочие
-  // приходы, cash_operations и прошлые смены не учитываются.
-  // Ожидаемый остаток = opening_balance + принято наличными.
-  const shiftCash = openShift
-    ? (() => {
-        const openedAt = new Date(openShift.openedAt)
-
-        const cashPayments = incomePayments.filter(
-          (payment) =>
-            payment.orderId &&
-            payment.cashRegisterId === openShift.cashRegisterId &&
-            payment.paymentMethod === 'cash' &&
-            new Date(payment.createdAt) >= openedAt,
-        )
-
-        const cashCollected = cashPayments.reduce(
-          (sum, payment) => sum + payment.amount,
-          0,
-        )
-
-        return {
-          cashRegisterName: openShift.cashRegisterName,
-          openingBalance: openShift.openingBalance,
-          cashCollected,
-          expectedBalance: openShift.openingBalance + cashCollected,
-        }
-      })()
-    : null
+  // Касса текущей смены: ЕДИНЫЙ расчёт buildShiftCash из data/shifts.js
+  // (opening_balance + принято наличными). Та же бизнес-логика используется
+  // ShiftModal при закрытии смены — независимых копий расчёта нет.
+  const shiftCash = buildShiftCash(openShift, incomePayments, now)
   // «Деньги в кассах» — только активные кассы (согласовано с /cash-registers).
   const cashTotal = cashRegisters
     .filter((register) => register.isActive)
