@@ -205,3 +205,15 @@ create trigger clients_client_number_immutable_trigger
   before update on clients
   for each row
   execute function clients_client_number_immutable();
+
+-- ---------------------------------------------------------------------
+-- 5. GRANTS: права на sequences для INSERT из Supabase frontend
+--    DB default с nextval() выполняется от имени вызывающей роли
+--    (authenticated). В tracked миграциях проекта нет alter default
+--    privileges на sequences, поэтому права выдаются явно — иначе
+--    INSERT заказа/клиента упадёт с permission denied на sequence.
+--    anon права не выдаются: все операции CRM идут под authenticated.
+-- ---------------------------------------------------------------------
+
+grant usage, select on sequence public.orders_number_seq to authenticated;
+grant usage, select on sequence public.clients_number_seq to authenticated;
