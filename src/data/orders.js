@@ -219,6 +219,7 @@ export async function getOrders(filters = {}) {
     query = query.or(
       [
         `order_number.ilike.${pattern}`,
+        `client.ilike.${pattern}`,
       ].join(','),
     )
   }
