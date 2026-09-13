@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar.jsx'
 import Header from './Header.jsx'
 import MainContent from './MainContent.jsx'
@@ -19,11 +20,17 @@ function ShiftReminders() {
     isClosingWarningWindow,
     refresh,
   } = useWorkShift()
+  const location = useLocation()
   const [modalMode, setModalMode] = useState(null)
+
+  // На manager Dashboard (/) свой компактный блок смены — глобальное
+  // напоминание там дублировало бы его. На остальных страницах напоминания
+  // работают как раньше; admin/user/technician reminder не касается.
+  const isManagerDashboard = isManager && location.pathname === '/'
 
   let reminder = null
 
-  if (isManager) {
+  if (isManager && !isManagerDashboard) {
     if (isBusinessWindow && !openShift) {
       reminder = {
         tone: 'warning',
