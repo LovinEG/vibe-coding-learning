@@ -1332,7 +1332,9 @@ function OrderDetailPage() {
                       <p className="order-detail-page__event-text">{event.message}</p>
                     </li>
                   ) : (
-                    /* Системное событие — компактная строка: время + message. */
+                    /* Системное событие — компактная строка: время + message.
+                       Легаси-события (order_status_history) дополнительно
+                       показывают автора, если он известен. */
                     <li
                       key={event.id}
                       className="order-detail-page__event order-detail-page__event--system"
@@ -1340,6 +1342,11 @@ function OrderDetailPage() {
                       <span className="order-detail-page__event-time">
                         {formatDateTime(event.createdAt)}
                       </span>
+                      {event.legacy && event.authorName ? (
+                        <span className="order-detail-page__event-author">
+                          {event.authorName}
+                        </span>
+                      ) : null}
                       <span className="order-detail-page__event-text">
                         {event.message ?? EVENT_LABELS[event.type] ?? event.type}
                       </span>
