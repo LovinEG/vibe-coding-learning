@@ -129,7 +129,11 @@ comment on function public.receive_stock_batch(uuid, uuid, integer, numeric) is
   'Атомарный приход запчасти: партия stock_batches + движение income в одной транзакции. Требует authenticated и inventory.manage.';
 
 -- Вызов — только авторизованным пользователям CRM.
-revoke execute on function public.receive_stock_batch(uuid, uuid, integer, numeric) from anon;
+-- PostgreSQL по умолчанию выдаёт EXECUTE функции роли PUBLIC, поэтому
+-- сначала отбираем право у PUBLIC (иначе grant authenticated ничего
+-- не ограничивает), затем и у anon; authenticated — явно разрешаем.
+revoke all on function public.receive_stock_batch(uuid, uuid, integer, numeric) from public;
+revoke all on function public.receive_stock_batch(uuid, uuid, integer, numeric) from anon;
 grant execute on function public.receive_stock_batch(uuid, uuid, integer, numeric) to authenticated;
 
 -- ---------------------------------------------------------------------
