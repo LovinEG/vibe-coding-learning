@@ -50,6 +50,7 @@ begin
   if not exists (
     select 1 from pg_constraint
     where conname = 'stock_movements_order_id_fkey'
+      and conrelid = 'public.stock_movements'::regclass
   ) then
     alter table public.stock_movements
       add constraint stock_movements_order_id_fkey
@@ -59,6 +60,7 @@ begin
   if not exists (
     select 1 from pg_constraint
     where conname = 'stock_movements_batch_id_fkey'
+      and conrelid = 'public.stock_movements'::regclass
   ) then
     alter table public.stock_movements
       add constraint stock_movements_batch_id_fkey
@@ -68,6 +70,7 @@ begin
   if not exists (
     select 1 from pg_constraint
     where conname = 'stock_movements_supplier_id_fkey'
+      and conrelid = 'public.stock_movements'::regclass
   ) then
     alter table public.stock_movements
       add constraint stock_movements_supplier_id_fkey
@@ -77,6 +80,7 @@ begin
   if not exists (
     select 1 from pg_constraint
     where conname = 'stock_movements_order_part_id_fkey'
+      and conrelid = 'public.stock_movements'::regclass
   ) then
     alter table public.stock_movements
       add constraint stock_movements_order_part_id_fkey
