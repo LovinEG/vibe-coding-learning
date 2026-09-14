@@ -202,6 +202,11 @@ export async function addOrderComment(orderId, message) {
 // metadata пишется как есть (jsonb): для technician_assigned —
 // { technician_id, technician_name }, для part_added / part_removed —
 // { part_id, name, quantity }.
+//
+// payment_added / order_closed через эту функцию не пишутся: их создаёт
+// только серверная RPC public.close_order — в той же транзакции, что
+// income-платёж и закрытие заказа. INSERT-политика order_events этим
+// типам фронтенд не разрешает (событие нельзя подделать из браузера).
 export async function logOrderTimelineEvent({
   orderId,
   type,

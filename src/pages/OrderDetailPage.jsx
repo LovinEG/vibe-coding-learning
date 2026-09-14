@@ -230,6 +230,19 @@ function OrderDetailPage() {
   const [commentSending, setCommentSending] = useState(false)
   const [commentError, setCommentError] = useState('')
 
+  // Тихое обновление ленты таймлайна после серверных операций, которые
+  // пишут события в БД (RPC close_order: payment_added + order_closed).
+  const refreshEvents = useCallback(async () => {
+    try {
+      const events = await getOrderEvents(id)
+
+      setOrderEvents(events)
+      setEventsError('')
+    } catch (err) {
+      console.error('Не удалось обновить историю заказа:', err)
+    }
+  }, [id])
+
   // order_events загружаются при открытии заказа (и при смене id);
   // при добавлении комментария новая запись просто добавляется в начало
   // списка без перезапроса — перезагрузка не нужна.
@@ -1427,10 +1440,12 @@ function OrderDetailPage() {
           order={order}
           onClose={() => setPayCloseModalOpen(false)}
           onClosed={() => {
-            // Перезагружаем заказ с сервера: RPC уже изменил статус,
-            // оплату и историю — локально вручную ничего не правим.
+            // Перезагружаем заказ и ленту таймлайна с сервера: RPC уже
+            // изменил статус, оплату, историю и записал события
+            // payment_added / order_closed — локально ничего не правим.
             setCloseSuccess(true)
             loadOrder()
+            refreshEvents()
           }}
         />
       ) : null}

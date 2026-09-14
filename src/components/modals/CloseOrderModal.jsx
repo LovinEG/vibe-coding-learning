@@ -15,8 +15,9 @@ const PAYMENT_METHOD_OPTIONS = [
 // Подтверждение вызывает Supabase RPC close_order(p_order_id,
 // p_cash_register_id, p_amount, p_payment_method) — он сам создаёт
 // income-платёж (триггер обновляет баланс кассы), меняет статус заказа
-// на «Закрыт», пишет closed_at и событие 'closed' в историю. Отдельные
-// payment/cash operation на фронтенде не создаются.
+// на «Закрыт», пишет closed_at, событие 'closed' в историю и события
+// таймлайна payment_added / order_closed в order_events. Всё это — одна
+// транзакция RPC, отдельных INSERT после вызова нет.
 function CloseOrderModal({ order, onClose, onClosed }) {
   const [form, setForm] = useState({
     amount: order?.price != null && order.price !== '' ? String(order.price) : '',
