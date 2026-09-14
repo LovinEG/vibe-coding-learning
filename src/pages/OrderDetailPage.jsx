@@ -1332,32 +1332,12 @@ function OrderDetailPage() {
             ) : (
               <ol className="order-detail-page__timeline order-detail-page__timeline--events">
                 {orderEvents.map((event) => {
-                    if (event.type === 'comment') {
-                      /* Комментарий сотрудника — карточка с зелёной
-                         акцентной полосой слева. */
-                      return (
-                        <li
-                          key={event.id}
-                          className="order-detail-page__event order-detail-page__event--comment"
-                        >
-                          <div className="order-detail-page__event-head">
-                            <span className="order-detail-page__event-author">
-                              {event.authorName ?? 'Сотрудник'}
-                            </span>
-                            <span className="order-detail-page__event-time">
-                              {formatDateTime(event.createdAt)}
-                            </span>
-                          </div>
-                          <p className="order-detail-page__event-text">
-                            {event.message}
-                          </p>
-                        </li>
-                      )
-                    }
+                    /* Комментарий сотрудника и системное событие рендерятся
+                       одинаково — единая строка классического таймлайна:
+                       иконка слева, время/автор и текст на всю ширину. */
+                    const isComment = event.type === 'comment'
 
-                    /* Системное событие — компактная мини-карточка в том же
-                       каркасе, что и комментарий: шапка (бейдж/автор +
-                       время) сверху, текст на всю ширину ниже. */
+                    /* Компактный бейдж значимого системного события. */
                     const badgeText =
                       SYSTEM_BADGE_LABELS[event.type] ?? null
                     const tone = SYSTEM_BADGE_TONE[event.type] ?? null
@@ -1365,38 +1345,66 @@ function OrderDetailPage() {
                     return (
                       <li
                         key={event.id}
-                        className="order-detail-page__event order-detail-page__event--system"
+                        className={`order-detail-page__event${
+                          isComment
+                            ? ' order-detail-page__event--comment'
+                            : ' order-detail-page__event--system'
+                        }`}
                       >
-                        <div className="order-detail-page__event-head">
-                          {badgeText || event.authorName ? (
-                            <div className="order-detail-page__event-meta">
-                              {badgeText ? (
-                                <span
-                                  className={`order-detail-page__event-badge${
-                                    tone
-                                      ? ` order-detail-page__event-badge--${tone}`
-                                      : ''
-                                  }`}
-                                >
-                                  {badgeText}
-                                </span>
-                              ) : null}
-                              {event.authorName ? (
-                                <span className="order-detail-page__event-author">
-                                  {event.authorName}
-                                </span>
-                              ) : null}
-                            </div>
-                          ) : null}
-                          <span className="order-detail-page__event-time">
-                            {formatDateTime(event.createdAt)}
-                          </span>
+                        {/* Иконка слева: нейтральная точка у системы,
+                            зелёная иконка комментария у сотрудника. */}
+                        <span
+                          className="order-detail-page__event-marker"
+                          aria-hidden="true"
+                        >
+                          {isComment ? (
+                            <svg
+                              className="order-detail-page__event-comment-icon"
+                              viewBox="0 0 24 24"
+                              width="13"
+                              height="13"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                          ) : (
+                            <span className="order-detail-page__event-dot" />
+                          )}
+                        </span>
+
+                        <div className="order-detail-page__event-content">
+                          <div className="order-detail-page__event-head">
+                            <span className="order-detail-page__event-time">
+                              {formatDateTime(event.createdAt)}
+                            </span>
+                            {badgeText ? (
+                              <span
+                                className={`order-detail-page__event-badge${
+                                  tone
+                                    ? ` order-detail-page__event-badge--${tone}`
+                                    : ''
+                                }`}
+                              >
+                                {badgeText}
+                              </span>
+                            ) : null}
+                            {event.authorName || isComment ? (
+                              <span className="order-detail-page__event-author">
+                                {event.authorName ?? 'Сотрудник'}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="order-detail-page__event-text">
+                            {event.message ??
+                              (isComment
+                                ? ''
+                                : (EVENT_LABELS[event.type] ?? event.type))}
+                          </p>
                         </div>
-                        <p className="order-detail-page__event-text">
-                          {event.message ??
-                            EVENT_LABELS[event.type] ??
-                            event.type}
-                        </p>
                       </li>
                     )
                   })}

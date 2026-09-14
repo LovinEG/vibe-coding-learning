@@ -4211,82 +4211,9 @@
   color: #c0392b;
 }
 
-/* Таймлайн истории. Вертикальный коннектор ::before удалён:
-   старый History-таймлайн (timeline-item/icon) больше не рендерится,
-   а на новом order_events таймлайне эта линия проходила поверх
-   текста карточек комментариев. */
-.order-detail-page__timeline-item {
-  position: relative;
-  display: flex;
-  gap: 12px;
-  padding: 8px 0;
-}
-
-.order-detail-page__timeline-icon {
-  position: relative;
-  z-index: 1;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--color-card);
-  border: 2px solid var(--color-border);
-  font-size: 14px;
-}
-
-.order-detail-page__timeline-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.order-detail-page__timeline-time {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.order-detail-page__timeline-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.order-detail-page__timeline-comment {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  line-height: 1.4;
-}
-
-.order-detail-page__timeline-author {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.order-detail-page__timeline-avatar {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.order-detail-page__timeline-avatar--placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-accent-secondary-bg);
-  color: var(--color-accent-secondary);
-  font-size: 10px;
-  font-weight: 600;
-}
+/* (Старый History-таймлайн timeline-item/timeline-icon больше не
+   рендерится — удалён. Вместо него единый order_events-таймлайн
+   в секции Stage 3 ниже.) */
 
 /* Лайтбокс */
 
@@ -5377,7 +5304,10 @@
 /* ==================================================================== */
 /* ---------- Stage 3: Order Timeline (order_events) ------------------ */
 /* ==================================================================== */
-/* Белый фон, graphite, зелёный #2D9166; красный не используется.        */
+/* Классическая история заказа: единый вертикальный таймлайн с линией и
+   маленькими иконками слева. Каждый пункт — строка, а не карточка:
+   комментарий отличается от системного события только иконкой и автором.
+   Белый фон, graphite, зелёный #2D9166; красный — только rejected/error. */
 
 /* Форма внутреннего комментария сотрудника. */
 .order-detail-page__comment-form {
@@ -5391,115 +5321,116 @@
   align-self: flex-end;
 }
 
-/* Таймлайн order_events: новые события сверху. */
+/* Единый вертикальный таймлайн: новые события сверху. */
 .order-detail-page__timeline--events {
+  position: relative;
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  /* Увеличенные вертикальные отступы между событиями. */
-  gap: 12px;
 }
 
-/* Базовое событие — общий каркас для комментариев и системных событий:
-   шапка (автор/бейдж + время) сверху, текст ниже на всю ширину.
-   Иерархия задаётся модификаторами: комментарий — крупная зелёная
-   карточка, системное событие — компактная нейтральная строка. */
+/* Вертикальный коннектор по центру колонки иконок. */
+.order-detail-page__timeline--events::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 8px;
+  left: 9px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+
+/* Единая строка события: иконка слева, контент справа на всю ширину. */
 .order-detail-page__event {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  border-radius: 8px;
+  gap: 12px;
+  min-width: 0;
+  padding: 0 0 18px;
   font-size: 13px;
   line-height: 1.5;
 }
 
-/* Системное событие = действие CRM: компактная нейтральная строка.
-   Меньше отступов и визуального веса, приглушённые фон и граница,
-   без ярких акцентов (красный — только для rejected/error). */
-.order-detail-page__event--system {
-  gap: 4px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  background: color-mix(in srgb, var(--color-surface) 45%, #ffffff);
+.order-detail-page__event:last-child {
+  padding-bottom: 0;
 }
 
-/* Комментарий сотрудника = главный контент таймлайна: карточка больше
-   по площади, с едва заметным зелёным подтоном и округлённой зелёной
-   полосой слева. */
-.order-detail-page__event--comment {
-  gap: 8px;
-  padding: 14px 16px;
-  margin-bottom: 4px;
-  border-radius: 10px;
-  border-left: 3px solid #2d9166;
-  background: color-mix(in srgb, var(--color-success-bg) 32%, #ffffff);
+/* Круглый маркер: закрывает линию под иконкой (фон карточки). */
+.order-detail-page__event-marker {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
 }
 
-/* Голова события: слева автор/бейдж, справа вторичное время. */
+/* Нейтральная маленькая точка системного события. */
+.order-detail-page__event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+
+/* Иконка комментария сотрудника — зелёная. */
+.order-detail-page__event-comment-icon {
+  display: block;
+  color: #2d9166;
+}
+
+/* Контент события: мета-строка (время/бейдж/автор) и текст события
+   на всю ширину блока. */
+.order-detail-page__event-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .order-detail-page__event-head {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.order-detail-page__event-meta {
-  display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }
 
+.order-detail-page__event-time {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Автор: у комментария — зелёный акцент, у системного события вторичен. */
 .order-detail-page__event-author {
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-text);
 }
 
-/* В комментарии автор заметнее: жирнее + зелёная точка-маркер. */
 .order-detail-page__event--comment .order-detail-page__event-author {
-  font-weight: 700;
+  color: #2d9166;
 }
 
-.order-detail-page__event--comment .order-detail-page__event-author::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: #2d9166;
-  vertical-align: 1px;
-}
-
-/* В системной строке автор вторичен. */
 .order-detail-page__event--system .order-detail-page__event-author {
   font-weight: 500;
-  font-size: 12px;
   color: var(--color-text-muted);
-}
-
-/* Время вторично и у комментариев, и у системных событий: справа,
-   мельче и приглушённее. */
-.order-detail-page__event-time {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  white-space: nowrap;
 }
 
 /* Бейдж значимого системного события — маленькая приглушённая таблетка. */
 .order-detail-page__event-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 10px;
+  padding: 0 8px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: #ffffff;
@@ -5507,7 +5438,7 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  line-height: 1.4;
+  line-height: 1.6;
   white-space: nowrap;
 }
 
@@ -5525,22 +5456,13 @@
   color: #d64545;
 }
 
-/* Текст события: читается на всю ширину с переносами. */
+/* Текст события: переносится на всю ширину блока. */
 .order-detail-page__event-text {
   margin: 0;
   color: var(--color-text);
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-/* В комментарии текст — основной контент, строки чуть свободнее. */
-.order-detail-page__event--comment .order-detail-page__event-text {
-  line-height: 1.55;
-}
-
-/* В системной строке текст компактный, но легко читаемый. */
-.order-detail-page__event--system .order-detail-page__event-text {
-  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 /* ==================================================================== */
