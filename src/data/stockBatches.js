@@ -34,45 +34,31 @@ export async function getStockBatches() {
   })
 }
 
-// id текущего профиля (profiles.id = auth.users.id) для авторства движения.
-async function getCurrentProfileId() {
-  const { data, error } = await supabase.auth.getUser()
-
-  if (error) {
-    throw error
-  }
-
-  return data?.user?.id ?? null
-}
-
-// Приход товара на склад: партия поставки + движение 'income'.
+// Приход товара на склад — атомарная операция на сервере.
+//
+// RPC public.receive_stock_batch (миграция
+// 20260920000000_create_receive_stock_batch_rpc.sql) в одной транзакции
+// создаёт партию поставки (stock_batches) и движение 'income'
+// (stock_movements) со связями batch_id / supplier_id / purchase_price и
+// автором profile_id = auth.uid(). Раньше это были два отдельных INSERT
+// из фронтенда: сбой второго оставлял партию без движения, и остаток
+// склада (VIEW v_part_stock) не увеличивался.
+//
+// Контракт сохранён: те же аргументы ({ partId, supplierId, quantity,
+// purchasePrice }) и тот же возврат — созданная партия. Ошибки сервера
+// (нет права inventory.manage, quantity <= 0, цена < 0) приходят как
+// обычный PostgrestError и пробрасываются наверх: StockBatchModal
+// показывает err.message пользователю.
 export async function addStockBatch({ partId, supplierId, quantity, purchasePrice }) {
-  const { data, error } = await supabase
-    .from('stock_batches')
-    .insert({
-      part_id: partId,
-      supplier_id: supplierId ?? null,
-      quantity,
-      purchase_price: purchasePrice ?? null,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    throw error
-  }
-
-  const profileId = await getCurrentProfileId()
-
-  const { error: movementError } = await supabase.from('stock_movements').insert({
-    part_id: partId,
-    movement_type: 'income',
-    quantity,
-    profile_id: profileId,
+  const { data, error } = await supabase.rpc('receive_stock_batch', {
+    p_part_id: partId,
+    p_supplier_id: supplierId ?? null,
+    p_quantity: quantity,
+    p_purchase_price: purchasePrice ?? null,
   })
 
-  if (movementError) {
-    throw movementError
+  if (error) {
+    throw error
   }
 
   return data
