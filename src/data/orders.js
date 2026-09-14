@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { logOrderTimelineEvent } from './orderEvents'
 
 // id текущего пользователя — он же profiles.id (1:1 с auth.users).
 // Используется как автор событий в order_status_history по умолчанию.
@@ -10,6 +11,28 @@ async function getCurrentProfileId() {
   }
 
   return data?.user?.id ?? null
+}
+
+// ФИО профиля по id — для текста системных событий таймлайна
+// (например, «Назначен мастер: Иван Петров»). Сбой чтения не критичен:
+// возвращаем null и вызывающий код просто не пишет событие.
+async function getProfileName(profileId) {
+  if (!profileId) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', profileId)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Не удалось получить профиль мастера:', error.message)
+    return null
+  }
+
+  return data?.full_name ?? null
 }
 
 // Инкрементальный пересчёт итоговой стоимости заказа (orders.price):
@@ -664,6 +687,25 @@ export async function createOrder(orderData) {
     console.error('Не удалось записать order_created:', createdEventError.message)
   }
 
+  // 6. Событие таймлайна (Stage 3): technician_assigned — если мастер был
+  // назначен уже при создании заказа (предыдущего мастера нет, поэтому
+  // это именно назначение, а не смена). Сбой записи не ломает создание.
+  if (createdOrder.master_id) {
+    const technicianName = await getProfileName(createdOrder.master_id)
+
+    if (technicianName) {
+      await logOrderTimelineEvent({
+        orderId: createdOrder.id,
+        type: 'technician_assigned',
+        message: `Назначен мастер: ${technicianName}`,
+        metadata: {
+          technician_id: createdOrder.master_id,
+          technician_name: technicianName,
+        },
+      })
+    }
+  }
+
   // Возвращаем уже замапленный заказ — сгенерированный БД номер
   // доступен вызывающему коду как orderNumber.
   return mapOrder(createdOrder)
@@ -675,6 +717,8 @@ export async function createOrder(orderData) {
 // 2) редактирование карточки (ШАГ 3.5): masterId, problemDescription,
 //    appearance, equipment, deviceCondition, estimatedCost, deadlineAt,
 //    repairType — с логированием события 'updated' в историю.
+// Смена мастера дополнительно пишет technician_assigned в таймлайн
+// (order_events, Stage 3) — только если мастер реально изменился.
 export async function updateOrder(orderId, updateData = {}) {
   const updates = {}
 
@@ -701,7 +745,24 @@ export async function updateOrder(orderId, updateData = {}) {
   }
 
   // Поля редактирования карточки.
-  if (updateData.masterId !== undefined) {
+  // Смена мастера: старый technician_id нужен, чтобы не писать событие
+  // таймлайна, когда форма редактирования прислала того же мастера
+  // (EditOrderModal отправляет masterId всегда, даже без изменений).
+  let masterFrom = null
+  const masterChanged = updateData.masterId !== undefined
+
+  if (masterChanged) {
+    const { data: currentMaster, error: masterError } = await supabase
+      .from('orders')
+      .select('master_id')
+      .eq('id', orderId)
+      .single()
+
+    if (masterError) {
+      throw masterError
+    }
+
+    masterFrom = currentMaster?.master_id ?? null
     updates.master_id = updateData.masterId || null
   }
   if (updateData.problemDescription !== undefined) {
@@ -781,6 +842,25 @@ export async function updateOrder(orderId, updateData = {}) {
 
     if (statusEventError) {
       console.error('Не удалось записать status_changed:', statusEventError.message)
+    }
+  }
+
+  // Событие таймлайна (Stage 3): technician_assigned — только при реальной
+  // смене мастера и только когда мастер задан (снятие мастера — не
+  // «назначение», писать нечего). Сбой записи не ломает обновление.
+  if (masterChanged && updates.master_id && updates.master_id !== masterFrom) {
+    const technicianName = await getProfileName(updates.master_id)
+
+    if (technicianName) {
+      await logOrderTimelineEvent({
+        orderId,
+        type: 'technician_assigned',
+        message: `Назначен мастер: ${technicianName}`,
+        metadata: {
+          technician_id: updates.master_id,
+          technician_name: technicianName,
+        },
+      })
     }
   }
 

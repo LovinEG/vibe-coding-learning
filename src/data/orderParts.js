@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { logOrderEvent, mapOrderPart, recalcOrderPrice } from './orders'
+import { logOrderTimelineEvent } from './orderEvents'
 
 // id текущего пользователя — он же profiles.id (1:1 с auth.users).
 async function getCurrentProfileId() {
@@ -113,7 +114,7 @@ export async function addOrderPart(orderId, partData = {}) {
   // 3. Финансовый пересчёт заказа (+ стоимость деталей).
   const order = await recalcOrderPrice(orderId, Number(clientPrice ?? 0) * qty)
 
-  // 4. Событие в хронологии заказа.
+  // 4. Событие в хронологии заказа (легаси order_status_history).
   const partName = created?.parts?.name ?? 'деталь'
 
   await logOrderEvent({
@@ -125,6 +126,18 @@ export async function addOrderPart(orderId, partData = {}) {
         ? `${qty} шт. × ${clientPrice} BYN = ${Number(clientPrice) * qty} BYN`
         : `${qty} шт.`,
     createdBy: profileId,
+  })
+
+  // 5. Событие таймлайна (Stage 3): part_added с названием детали и
+  // количеством. Не дублирует logOrderEvent — это order_events; легаси-
+  // строка с тем же типом дедуплицируется при построении ленты.
+  // Сбой записи не откатывает списание детали.
+  await logOrderTimelineEvent({
+    orderId,
+    type: 'part_added',
+    message: `Добавлена деталь: ${partName}, ${qty} шт.`,
+    metadata: { part_id: partId, name: partName, quantity: qty },
+    authorId: profileId,
   })
 
   return { orderPart: created, order }
@@ -151,14 +164,16 @@ export async function getOrderPartsByOrderIds(orderIds) {
 }
 
 // Удаление детали из заказа: удаление записи + компенсирующее движение
-// 'return' (возврат на склад) + пересчёт итоговой суммы заказа.
+// 'return' (возврат на склад) + пересчёт итоговой суммы заказа + событие
+// 'part_removed' в таймлайне заказа.
 export async function removePartFromOrder(orderPartId, orderId) {
   const profileId = await getCurrentProfileId()
 
-  // 1. Читаем запись ДО удаления: нужны part_id, quantity и цена.
+  // 1. Читаем запись ДО удаления: нужны part_id, quantity, цена и название
+  // детали (для текста события таймлайна).
   const { data: row, error: rowError } = await supabase
     .from('order_parts')
-    .select('part_id, quantity, price_at_time')
+    .select('part_id, quantity, price_at_time, parts(name)')
     .eq('id', orderPartId)
     .single()
 
@@ -196,6 +211,21 @@ export async function removePartFromOrder(orderPartId, orderId) {
     orderId,
     -(Number(row.price_at_time ?? 0) * Number(row.quantity ?? 0)),
   )
+
+  // 5. Событие таймлайна (Stage 3): part_removed. В легаси-истории
+  // (order_status_history) кода 'part_removed' нет, поэтому событие
+  // пишется только в order_events — история не трогается.
+  // Сбой записи не откатывает возврат детали на склад.
+  const partName = row?.parts?.name ?? 'деталь'
+  const partQuantity = Number(row?.quantity ?? 0)
+
+  await logOrderTimelineEvent({
+    orderId,
+    type: 'part_removed',
+    message: `Удалена деталь: ${partName}, ${partQuantity} шт.`,
+    metadata: { part_id: row?.part_id ?? null, name: partName, quantity: partQuantity },
+    authorId: profileId,
+  })
 
   return { order }
 }

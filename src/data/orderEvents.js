@@ -1,5 +1,16 @@
 import { supabase } from '../lib/supabase'
 
+// id текущего пользователя — он же profiles.id (1:1 с auth.users).
+async function getCurrentProfileId() {
+  const { data, error } = await supabase.auth.getUser()
+
+  if (error) {
+    throw error
+  }
+
+  return data?.user?.id ?? null
+}
+
 // Таймлайн заказа (order_events, Stage 3): системные события + внутренние
 // комментарии сотрудников. Лента единая: order_events объединяется на лету
 // с легаси-историей order_status_history (read-only, без копирования
@@ -156,11 +167,7 @@ export async function addOrderComment(orderId, message) {
     return null
   }
 
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-
-  if (userError) {
-    throw userError
-  }
+  const profileId = await getCurrentProfileId()
 
   const { data, error } = await supabase
     .from('order_events')
@@ -168,7 +175,7 @@ export async function addOrderComment(orderId, message) {
       order_id: orderId,
       type: 'comment',
       message: text,
-      author_id: userData?.user?.id ?? null,
+      author_id: profileId,
       metadata: {},
     })
     .select(ORDER_EVENTS_SELECT)
@@ -179,4 +186,54 @@ export async function addOrderComment(orderId, message) {
   }
 
   return mapOrderEvent(data)
+}
+
+// ---------------------------------------------------------------------
+// Системные события таймлайна из бизнес-операций заказа
+// (назначение мастера, детали и т.п.). Это «младший брат» logOrderEvent
+// из orders.js: тот пишет легаси-историю order_status_history и бросает
+// ошибку, этот — order_events и НИКОГДА не бросает: сбой журналирования
+// не должен откатывать основную операцию (мастер уже назначен, деталь
+// уже списана со склада). Ошибка уходит только в console.error.
+//
+// Возвращает true при успешной записи и false при любой проблеме, чтобы
+// вызывающий код мог решить, перечитывать ли ленту таймлайна.
+//
+// metadata пишется как есть (jsonb): для technician_assigned —
+// { technician_id, technician_name }, для part_added / part_removed —
+// { part_id, name, quantity }.
+export async function logOrderTimelineEvent({
+  orderId,
+  type,
+  message = null,
+  metadata = {},
+  authorId = null,
+} = {}) {
+  if (!orderId || !type) {
+    console.error('logOrderTimelineEvent: требуются orderId и type')
+    return false
+  }
+
+  try {
+    // Автор: переданный (например, мастер детали) или текущий пользователь.
+    const profileId = authorId ?? (await getCurrentProfileId())
+
+    const { error } = await supabase.from('order_events').insert({
+      order_id: orderId,
+      type,
+      message: message ?? null,
+      author_id: profileId,
+      metadata: metadata ?? {},
+    })
+
+    if (error) {
+      console.error(`Не удалось записать ${type}:`, error.message)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error(`Не удалось записать ${type}:`, error?.message ?? error)
+    return false
+  }
 }
