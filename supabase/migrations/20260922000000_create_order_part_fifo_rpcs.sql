@@ -136,7 +136,7 @@ begin
       using errcode = '22023';
   end if;
 
-  if p_markup is null or p_markup < 0 or p_markup <> p_markup then
+  if p_markup is null or p_markup < 0 or p_markup = 'NaN'::numeric then
     raise exception 'Наценка должна быть неотрицательным числом'
       using errcode = '22023';
   end if;

@@ -78,10 +78,10 @@ begin
 
   -- purchase_price: NULL — цена не указана (колонка nullable,
   -- StockBatchModal передаёт null при пустом поле). Если значение есть,
-  -- оно не может быть отрицательным. Сравнение p <> p отсекает NaN
-  -- (NaN в numeric проходит проверку знака, но ломает расчёты).
+  -- оно не может быть отрицательным. Явная проверка = 'NaN'::numeric
+  -- отсекает NaN (NaN в numeric проходит проверку знака, но ломает расчёты).
   if p_purchase_price is not null
-     and (p_purchase_price <> p_purchase_price or p_purchase_price < 0) then
+     and (p_purchase_price < 0 or p_purchase_price = 'NaN'::numeric) then
     raise exception 'Закупочная цена не может быть отрицательной'
       using errcode = '22023';
   end if;
