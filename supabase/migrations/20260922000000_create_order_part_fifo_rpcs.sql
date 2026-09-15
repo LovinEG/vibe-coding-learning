@@ -24,8 +24,9 @@
 --                                          batch.quantity - net_out));
 --   * порядок списания: batch.created_at asc nulls first, batch.id asc
 --     (детерминированный тай-брейк при одинаковых таймстампах);
---   * остаток без партии (legacy-движения с batch_id is null) списывается
---     отдельным сегментом с batch_id = null и ценой parts.purchase_price;
+--   * FIFO работает только через stock_batches; остатка без партии не
+--     существует. Если партий недостаточно — ошибка недостаточного
+--     остатка (22023);
 --   * Σ сегментов точно равна запрошенному количеству (проверяется
 --     ассертом — списание не может «потерять» или «создать» остаток).
 --
@@ -51,6 +52,13 @@
 --     под блокировкой строки позиции (второй параллельный вызов видит
 --     уже проставленный returned_at и падает 22023).
 --
+--   ВНИМАНИЕ (locking protocol gap): receive_stock_batch (Phase 3) пока
+--   НЕ берёт parts FOR UPDATE перед созданием партии. До отдельной
+--   следующей миграции, которая добавит ту же блокировку в
+--   receive_stock_batch, приход и списание одной запчасти могут
+--   конкурентно расходиться по остатку. Phase 4B эту миграцию не
+--   затрагивает (Phase 3 уже в production) — требуется отдельный шаг.
+--
 -- РОЛИ И ПРАВА: используются как есть — authenticated + inventory.manage
 -- (has_permission), плюс shift-guard для manager (can_perform_work_operation),
 -- как в close_order / receive_stock_batch. RLS и политики НЕ меняются:
@@ -59,7 +67,8 @@
 -- ЧТО НЕ МЕНЯЕТСЯ:
 --   * RLS/policies, finance-страницы, UI, timeline-схема;
 --   * VIEW public.v_part_stock (формула списания ей соответствует);
---   * public.receive_stock_batch;
+--   * public.receive_stock_batch (но см. примечание о locking protocol
+--     выше — потребуется отдельная миграция для parts FOR UPDATE);
 --   * migration 20260921000000_add_order_parts_fifo_snapshot_and_soft_return
 --     (уже применена в production и не переписывается);
 --   * frontend (Phase 4C).
@@ -262,10 +271,12 @@ begin
     v_op.id
   from tmp_fifo_segments;
 
-  -- 12. Инкремент orders.price ровно на client_total
-  --     (НЕ round(client_price) * quantity).
+  -- 12. Инкремент orders.price ровно на client_total.
+  --     client_total = purchase_cost_total + markup × quantity >= 0,
+  --     поэтому greatest не нужен — точное сложение с заблокированным
+  --     значением v_order.price.
   update public.orders
-    set price = greatest(coalesce(price, 0) + v_client_total, 0)
+    set price = coalesce(v_order.price, 0) + v_client_total
     where id = p_order_id;
 
   -- 13. Событие таймлайна part_added (order_events) в той же транзакции.
@@ -310,11 +321,12 @@ security definer
 set search_path = public
 as $$
 declare
-  v_profile_id uuid    := auth.uid();
-  v_op         public.order_parts;
-  v_order      public.orders;
-  v_part       public.parts;
-  v_refund     numeric;
+  v_profile_id  uuid    := auth.uid();
+  v_op          public.order_parts;
+  v_order       public.orders;
+  v_part        public.parts;
+  v_refund      numeric;
+  v_expense_sum integer;
 begin
   -- 1. Авторизация.
   if v_profile_id is null then
@@ -373,7 +385,49 @@ begin
       using errcode = '22023';
   end if;
 
-  -- 7. Зеркальные return-движения для каждого исходного expense.
+  -- 7. Проверка консистентности позиции перед любыми INSERT/UPDATE.
+  --    Автоматический возврат поддерживается только для позиций,
+  --    созданных FIFO-RPC: с точной себестоимостью, наценкой и полным
+  --    набором expense-движений по партиям с batch_id и purchase_price.
+  --    Legacy/неконсистентные позиции не поддерживают возврат — raise.
+  if v_op.purchase_cost_total is null or v_op.markup is null then
+    raise exception
+      'Позиция не поддерживает автоматический возврат: отсутствует точная себестоимость или наценка (legacy/неконсистентная позиция)'
+      using errcode = '22023';
+  end if;
+
+  select coalesce(sum(m.quantity), 0)
+    into v_expense_sum
+    from public.stock_movements m
+    where m.order_part_id = p_order_part_id
+      and m.movement_type = 'expense';
+
+  if v_expense_sum = 0 then
+    raise exception
+      'Позиция не поддерживает автоматический возврат: нет исходных expense-движений (legacy/неконсистентная позиция)'
+      using errcode = '22023';
+  end if;
+
+  if v_expense_sum <> v_op.quantity then
+    raise exception
+      'Позиция не поддерживает автоматический возврат: сумма quantity expense-движений (%) не равна количеству позиции % (legacy/неконсистентная позиция)',
+      v_expense_sum, v_op.quantity
+      using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from public.stock_movements m
+    where m.order_part_id = p_order_part_id
+      and m.movement_type = 'expense'
+      and (m.batch_id is null or m.purchase_price is null)
+  ) then
+    raise exception
+      'Позиция не поддерживает автоматический возврат: у исходных expense-движений отсутствует batch_id или purchase_price (legacy/неконсистентная позиция)'
+      using errcode = '22023';
+  end if;
+
+  -- 8. Зеркальные return-движения для каждого исходного expense.
   --    Сохраняются part_id, quantity, batch_id, supplier_id,
   --    purchase_price, order_id, order_part_id — возврат идёт ровно
   --    в те же партии, что были списаны, в тех же количествах.
@@ -395,24 +449,31 @@ begin
   where m.order_part_id = p_order_part_id
     and m.movement_type = 'expense';
 
-  -- 8. Soft-return: пометка позиции (БЕЗ удаления).
+  -- 9. Soft-return: пометка позиции (БЕЗ удаления).
   update public.order_parts
     set returned_at = now(),
         returned_by = v_profile_id
     where id = p_order_part_id
     returning * into v_op;
 
-  -- 9. Уменьшение orders.price на точную сумму позиции.
-  --    purchase_cost_total + markup × quantity = та же величина,
-  --    на которую был увеличен итог при списании.
-  v_refund := coalesce(v_op.purchase_cost_total, 0)
-              + (coalesce(v_op.markup, 0) * v_op.quantity);
+  -- 10. Уменьшение orders.price на точную сумму позиции.
+  --     purchase_cost_total и markup проверены NOT NULL на шаге 7,
+  --     coalesce не нужен. v_order.price заблокирован FOR UPDATE;
+  --     если он меньше возвращаемой суммы — raise (без greatest).
+  v_refund := v_op.purchase_cost_total + (v_op.markup * v_op.quantity);
+
+  if v_order.price is null or v_order.price < v_refund then
+    raise exception
+      'Итоговая стоимость заказа (%) меньше возвращаемой суммы (%) — возврат невозможен',
+      v_order.price, v_refund
+      using errcode = '22023';
+  end if;
 
   update public.orders
-    set price = greatest(coalesce(price, 0) - v_refund, 0)
+    set price = v_order.price - v_refund
     where id = v_op.order_id;
 
-  -- 10. Событие таймлайна part_removed в той же транзакции.
+  -- 11. Событие таймлайна part_removed в той же транзакции.
   begin
     insert into public.order_events (
       order_id, type, message, author_id, metadata
